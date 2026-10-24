@@ -224,48 +224,409 @@ def home():
     """
     return page(template,today=today,total=total,present=present,absent=absent,percentage=percentage,low=low)
 
-@app.route("/students", methods=["GET","POST"])
+@app.route("/students", methods=["GET", "POST"])
 def students_page():
+
     message = ""
+
     if request.method == "POST":
+
         action = request.form.get("action")
+
         if action == "add":
-            roll = request.form.get("roll","").strip()
-            name = request.form.get("name","").strip()
+
+            roll = request.form.get("roll", "").strip()
+            name = request.form.get("name", "").strip()
+
             if not roll or not name:
                 message = "Please enter roll number and name."
+
             else:
                 try:
-                    add_student(roll,name)
+                    add_student(roll, name)
                     message = "Student added successfully! 🎉"
+
                 except sqlite3.IntegrityError:
                     message = "This roll number already exists."
-        elif action == "delete":
-            delete_student(request.form.get("student_id"))
-            message = "Student deleted successfully."
-    students = get_students()
-    template = """
-    <div class="card"><h1>👨‍🎓 Manage Students</h1>
-    {% if message %}<div class="msg">{{message}}</div>{% endif %}
-    <h3>➕ Add Student</h3>
-    <form method="post"><input type="hidden" name="action" value="add">
-    <input type="number" name="roll" placeholder="Roll Number" required>
-    <input type="text" name="name" placeholder="Student Name" required>
-    <button class="btn">+ Add Student</button></form>
-    <p>Total Students: <b>{{students|length}}</b></p>
-    <input class="search" id="search" placeholder="🔍 Search student..." onkeyup="filterStudents()">
-    {% if students %}
-    <table id="studentTable"><tr><th>Roll No.</th><th>Name</th><th>Action</th></tr>
-    {% for s in students %}<tr><td>{{s["roll_number"]}}</td><td>{{s["name"]}}</td><td>
-    <form method="post" onsubmit="return confirm('Delete this student?')">
-    <input type="hidden" name="action" value="delete"><input type="hidden" name="student_id" value="{{s['id']}}">
-    <button class="btn delete">🗑 Delete</button></form></td></tr>{% endfor %}</table>
-    {% else %}<div class="empty">No students added yet.</div>{% endif %}
-    </div>
-    <script>function filterStudents(){let x=document.getElementById('search').value.toLowerCase();document.querySelectorAll('#studentTable tr').forEach((r,i)=>{if(i)r.style.display=r.innerText.toLowerCase().includes(x)?'':'none'})}</script>
-    """
-    return page(template,students=students,message=message)
 
+        elif action == "delete":
+
+            student_id = request.form.get("student_id")
+
+            delete_student(student_id)
+
+            message = "Student deleted successfully."
+
+    students = get_students()
+
+    template = """
+
+    <div class="card">
+
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:20px;
+            flex-wrap:wrap;
+        ">
+
+            <div>
+
+                <div style="
+                    color:#6366f1;
+                    font-weight:800;
+                    letter-spacing:1px;
+                    font-size:13px;
+                ">
+                    STUDENT MANAGEMENT
+                </div>
+
+                <h1 style="margin:8px 0;">
+                    👨‍🎓 Students
+                </h1>
+
+                <p style="color:#64748b;">
+                    Manage all students from one place.
+                </p>
+
+            </div>
+
+            <div style="
+                font-size:45px;
+                animation:float 3s ease-in-out infinite;
+            ">
+                🎓
+            </div>
+
+        </div>
+
+    </div>
+
+
+    {% if message %}
+
+    <div class="msg">
+        {{ message }}
+    </div>
+
+    {% endif %}
+
+
+    <div class="stats">
+
+        <div class="stat">
+
+            <p>👨‍🎓 Total Students</p>
+
+            <h2>{{ students|length }}</h2>
+
+            <small>Registered students</small>
+
+        </div>
+
+
+        <div class="stat">
+
+            <p>📚 Students</p>
+
+            <h2>100%</h2>
+
+            <small>Database connected</small>
+
+        </div>
+
+
+        <div class="stat">
+
+            <p>⚡ System</p>
+
+            <h2>ON</h2>
+
+            <small>TrackNova active</small>
+
+        </div>
+
+
+        <div class="stat">
+
+            <p>🚀 Status</p>
+
+            <h2>LIVE</h2>
+
+            <small>Website online</small>
+
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <h2>➕ Add New Student</h2>
+
+        <p style="color:#64748b;">
+            Enter the student's roll number and full name.
+        </p>
+
+        <form method="post">
+
+            <input
+                type="hidden"
+                name="action"
+                value="add"
+            >
+
+            <input
+                type="number"
+                name="roll"
+                placeholder="🔢 Roll Number"
+                required
+            >
+
+            <input
+                type="text"
+                name="name"
+                placeholder="👤 Student Full Name"
+                required
+            >
+
+            <button
+                class="btn"
+                type="submit"
+            >
+                + Add Student
+            </button>
+
+        </form>
+
+    </div>
+
+
+    <div class="card">
+
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:15px;
+            flex-wrap:wrap;
+        ">
+
+            <div>
+
+                <h2 style="margin-bottom:5px;">
+                    📋 Student List
+                </h2>
+
+                <p style="color:#64748b;">
+                    Search and manage students
+                </p>
+
+            </div>
+
+
+            <input
+                class="search"
+                id="studentSearch"
+                placeholder="🔍 Search student..."
+                onkeyup="searchStudents()"
+            >
+
+        </div>
+
+
+        {% if students %}
+
+        <table id="studentTable">
+
+            <thead>
+
+                <tr>
+
+                    <th>Roll Number</th>
+
+                    <th>Student Name</th>
+
+                    <th>Action</th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+            {% for student in students %}
+
+            <tr>
+
+                <td>
+
+                    <b>
+                        #{{ student["roll_number"] }}
+                    </b>
+
+                </td>
+
+
+                <td>
+
+                    <div style="
+                        display:flex;
+                        align-items:center;
+                        gap:10px;
+                    ">
+
+                        <div style="
+                            width:40px;
+                            height:40px;
+                            border-radius:50%;
+                            background:linear-gradient(
+                                135deg,
+                                #6366f1,
+                                #2563eb
+                            );
+                            color:white;
+                            display:flex;
+                            align-items:center;
+                            justify-content:center;
+                            font-weight:bold;
+                        ">
+
+                            {{ student["name"][0]|upper }}
+
+                        </div>
+
+
+                        <div>
+
+                            <b>
+                                {{ student["name"] }}
+                            </b>
+
+                            <br>
+
+                            <small style="color:#64748b;">
+                                Student
+                            </small>
+
+                        </div>
+
+                    </div>
+
+                </td>
+
+
+                <td>
+
+                    <form
+                        method="post"
+                        style="display:inline;"
+                        onsubmit="
+                        return confirm(
+                        'Are you sure you want to delete this student?'
+                        );
+                        "
+                    >
+
+                        <input
+                            type="hidden"
+                            name="action"
+                            value="delete"
+                        >
+
+                        <input
+                            type="hidden"
+                            name="student_id"
+                            value="{{ student['id'] }}"
+                        >
+
+                        <button
+                            class="btn delete"
+                            type="submit"
+                        >
+                            🗑 Delete
+                        </button>
+
+                    </form>
+
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+            </tbody>
+
+        </table>
+
+
+        {% else %}
+
+        <div class="empty">
+
+            <div style="font-size:55px;">
+                👨‍🎓
+            </div>
+
+            <h3>No students yet</h3>
+
+            <p>
+                Add your first student using the form above.
+            </p>
+
+        </div>
+
+        {% endif %}
+
+    </div>
+
+
+    <script>
+
+    function searchStudents() {
+
+        let search =
+            document
+            .getElementById("studentSearch")
+            .value
+            .toLowerCase();
+
+        let rows =
+            document
+            .querySelectorAll(
+                "#studentTable tbody tr"
+            );
+
+        rows.forEach(function(row) {
+
+            let text =
+                row.innerText.toLowerCase();
+
+            if (text.includes(search)) {
+
+                row.style.display = "";
+
+            } else {
+
+                row.style.display = "none";
+
+            }
+
+        });
+
+    }
+
+    </script>
+
+    """
+
+    return page(
+        template,
+        students=students,
+        message=message
+    )
 @app.route("/attendance", methods=["GET","POST"])
 def attendance_page():
     students = get_students()

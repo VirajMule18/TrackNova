@@ -13,14 +13,15 @@ def get_connection():
     return db
 
 
+# =========================================================
+# DATABASE SETUP
+# =========================================================
+
 def setup_database():
 
     with get_connection() as db:
 
-        # =========================
         # STUDENTS
-        # =========================
-
         db.execute("""
             CREATE TABLE IF NOT EXISTS students (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,85 +30,7 @@ def setup_database():
             )
         """)
 
-        # Add extra student columns to old database
-        columns = [
-            row["name"]
-            for row in db.execute(
-                "PRAGMA table_info(students)"
-            ).fetchall()
-        ]
-
-        if "class_id" not in columns:
-            db.execute(
-                "ALTER TABLE students ADD COLUMN class_id INTEGER"
-            )
-
-        if "email" not in columns:
-            db.execute(
-                "ALTER TABLE students ADD COLUMN email TEXT DEFAULT ''"
-            )
-
-        # =========================
-        # CLASSES
-        # =========================
-
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS classes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                class_name TEXT NOT NULL,
-                department TEXT NOT NULL,
-                semester TEXT NOT NULL,
-                division TEXT DEFAULT ''
-            )
-        """)
-
-        # =========================
-        # USERS
-        # =========================
-
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                full_name TEXT NOT NULL,
-                role TEXT NOT NULL
-                    CHECK(role IN ('admin','teacher','student')),
-                student_id INTEGER,
-                active INTEGER DEFAULT 1,
-
-                FOREIGN KEY(student_id)
-                    REFERENCES students(id)
-                    ON DELETE SET NULL
-            )
-        """)
-
-        # =========================
-        # SUBJECTS
-        # =========================
-
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS subjects (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                subject_name TEXT NOT NULL,
-                subject_code TEXT DEFAULT '',
-                class_id INTEGER,
-                teacher_id INTEGER,
-
-                FOREIGN KEY(class_id)
-                    REFERENCES classes(id)
-                    ON DELETE SET NULL,
-
-                FOREIGN KEY(teacher_id)
-                    REFERENCES users(id)
-                    ON DELETE SET NULL
-            )
-        """)
-
-        # =========================
         # LECTURES
-        # =========================
-
         db.execute("""
             CREATE TABLE IF NOT EXISTS lectures (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -119,32 +42,7 @@ def setup_database():
             )
         """)
 
-        lecture_columns = [
-            row["name"]
-            for row in db.execute(
-                "PRAGMA table_info(lectures)"
-            ).fetchall()
-        ]
-
-        if "teacher_id" not in lecture_columns:
-            db.execute(
-                "ALTER TABLE lectures ADD COLUMN teacher_id INTEGER"
-            )
-
-        if "class_id" not in lecture_columns:
-            db.execute(
-                "ALTER TABLE lectures ADD COLUMN class_id INTEGER"
-            )
-
-        if "subject_id" not in lecture_columns:
-            db.execute(
-                "ALTER TABLE lectures ADD COLUMN subject_id INTEGER"
-            )
-
-        # =========================
         # ATTENDANCE
-        # =========================
-
         db.execute("""
             CREATE TABLE IF NOT EXISTS lecture_attendance (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -154,7 +52,7 @@ def setup_database():
                 lecture_id INTEGER NOT NULL,
 
                 status TEXT NOT NULL
-                    CHECK(status IN ('Present','Absent')),
+                CHECK(status IN ('Present', 'Absent')),
 
                 UNIQUE(student_id, lecture_id),
 
@@ -168,33 +66,92 @@ def setup_database():
             )
         """)
 
-        # =========================
-        # DEFAULT ADMIN
-        # =========================
+        # USERS
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-        admin = db.execute("""
+                username TEXT NOT NULL UNIQUE,
+
+                password TEXT NOT NULL,
+
+                role TEXT NOT NULL
+                CHECK(role IN ('teacher', 'student')),
+
+                student_id INTEGER UNIQUE,
+
+                FOREIGN KEY(student_id)
+                    REFERENCES students(id)
+                    ON DELETE CASCADE
+            )
+        """)
+
+        db.commit()
+
+        # -------------------------------------------------
+        # CREATE DEFAULT TEACHER
+        # -------------------------------------------------
+
+        teacher = db.execute("""
             SELECT id
             FROM users
             WHERE username = ?
-        """, ("admin",)).fetchone()
+        """, ("teacher",)).fetchone()
 
-        if not admin:
+        if not teacher:
 
             db.execute("""
                 INSERT INTO users
                 (
                     username,
-                    password_hash,
-                    full_name,
+                    password,
                     role
                 )
-                VALUES (?, ?, ?, ?)
+                VALUES (?, ?, ?)
             """, (
-                "admin",
-                generate_password_hash("admin123"),
-                "TrackNova Administrator",
-                "admin"
+                "teacher",
+                generate_password_hash("teacher123"),
+                "teacher"
             ))
+
+        db.commit()
+
+        # -------------------------------------------------
+        # CREATE LOGIN FOR EXISTING STUDENTS
+        # -------------------------------------------------
+
+        students = db.execute("""
+            SELECT *
+            FROM students
+        """).fetchall()
+
+        for student in students:
+
+            username = str(student["roll_number"])
+
+            existing = db.execute("""
+                SELECT id
+                FROM users
+                WHERE student_id = ?
+            """, (student["id"],)).fetchone()
+
+            if not existing:
+
+                db.execute("""
+                    INSERT OR IGNORE INTO users
+                    (
+                        username,
+                        password,
+                        role,
+                        student_id
+                    )
+                    VALUES (?, ?, ?, ?)
+                """, (
+                    username,
+                    generate_password_hash("student123"),
+                    "student",
+                    student["id"]
+                ))
 
         db.commit()
 
@@ -208,47 +165,45 @@ def get_students():
     with get_connection() as db:
 
         return db.execute("""
-            SELECT
-                s.*,
-                c.class_name,
-                c.department,
-                c.semester,
-                c.division
-
-            FROM students s
-
-            LEFT JOIN classes c
-                ON s.class_id = c.id
-
-            ORDER BY
-                CAST(s.roll_number AS INTEGER) ASC
-
+            SELECT *
+            FROM students
+            ORDER BY CAST(roll_number AS INTEGER) ASC
         """).fetchall()
 
 
-def add_student(
-    roll,
-    name,
-    class_id=None,
-    email=""
-):
+def add_student(roll, name):
 
     with get_connection() as db:
 
-        db.execute("""
+        cursor = db.execute("""
             INSERT INTO students
             (
                 roll_number,
-                name,
-                class_id,
-                email
+                name
+            )
+            VALUES (?, ?)
+        """, (
+            int(roll),
+            name
+        ))
+
+        student_id = cursor.lastrowid
+
+        # Create student login
+        db.execute("""
+            INSERT INTO users
+            (
+                username,
+                password,
+                role,
+                student_id
             )
             VALUES (?, ?, ?, ?)
         """, (
-            int(roll),
-            name,
-            class_id or None,
-            email
+            str(roll),
+            generate_password_hash("student123"),
+            "student",
+            student_id
         ))
 
         db.commit()
@@ -267,199 +222,30 @@ def delete_student(student_id):
 
 
 # =========================================================
-# CLASSES
+# LOGIN
 # =========================================================
 
-def get_classes():
-
-    with get_connection() as db:
-
-        return db.execute("""
-            SELECT *
-            FROM classes
-
-            ORDER BY
-                department,
-                class_name,
-                division
-
-        """).fetchall()
-
-
-def add_class(
-    class_name,
-    department,
-    semester,
-    division=""
-):
-
-    with get_connection() as db:
-
-        db.execute("""
-            INSERT INTO classes
-            (
-                class_name,
-                department,
-                semester,
-                division
-            )
-            VALUES (?, ?, ?, ?)
-        """, (
-            class_name,
-            department,
-            semester,
-            division
-        ))
-
-        db.commit()
-
-
-# =========================================================
-# USERS
-# =========================================================
-
-def authenticate(
-    username,
-    password
-):
+def authenticate_user(username, password):
 
     with get_connection() as db:
 
         user = db.execute("""
             SELECT *
             FROM users
-
             WHERE username = ?
-            AND active = 1
-
         """, (username,)).fetchone()
 
-    if user:
-
-        try:
-
-            if check_password_hash(
-                user["password_hash"],
-                password
-            ):
-
-                return user
-
-        except Exception:
-
+        if not user:
             return None
 
-    return None
+        if check_password_hash(
+            user["password"],
+            password
+        ):
 
+            return user
 
-def get_users(role=None):
-
-    with get_connection() as db:
-
-        if role:
-
-            return db.execute("""
-                SELECT *
-                FROM users
-
-                WHERE role = ?
-
-                ORDER BY full_name
-
-            """, (role,)).fetchall()
-
-        return db.execute("""
-            SELECT *
-            FROM users
-            ORDER BY full_name
-        """).fetchall()
-
-
-def create_user(
-    username,
-    password,
-    full_name,
-    role,
-    student_id=None
-):
-
-    with get_connection() as db:
-
-        db.execute("""
-            INSERT INTO users
-            (
-                username,
-                password_hash,
-                full_name,
-                role,
-                student_id
-            )
-            VALUES (?, ?, ?, ?, ?)
-        """, (
-            username,
-            generate_password_hash(password),
-            full_name,
-            role,
-            student_id
-        ))
-
-        db.commit()
-
-
-# =========================================================
-# SUBJECTS
-# =========================================================
-
-def get_subjects():
-
-    with get_connection() as db:
-
-        return db.execute("""
-            SELECT
-                sub.*,
-                c.class_name,
-                c.department,
-                u.full_name AS teacher_name
-
-            FROM subjects sub
-
-            LEFT JOIN classes c
-                ON sub.class_id = c.id
-
-            LEFT JOIN users u
-                ON sub.teacher_id = u.id
-
-            ORDER BY sub.subject_name
-
-        """).fetchall()
-
-
-def add_subject(
-    subject_name,
-    subject_code="",
-    class_id=None,
-    teacher_id=None
-):
-
-    with get_connection() as db:
-
-        db.execute("""
-            INSERT INTO subjects
-            (
-                subject_name,
-                subject_code,
-                class_id,
-                teacher_id
-            )
-            VALUES (?, ?, ?, ?)
-        """, (
-            subject_name,
-            subject_code,
-            class_id or None,
-            teacher_id or None
-        ))
-
-        db.commit()
+        return None
 
 
 # =========================================================
@@ -471,10 +257,7 @@ def add_lecture(
     lecture_number,
     subject,
     start_time,
-    end_time,
-    teacher_id=None,
-    class_id=None,
-    subject_id=None
+    end_time
 ):
 
     with get_connection() as db:
@@ -486,23 +269,15 @@ def add_lecture(
                 lecture_number,
                 subject,
                 start_time,
-                end_time,
-                teacher_id,
-                class_id,
-                subject_id
+                end_time
             )
-
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-
+            VALUES (?, ?, ?, ?, ?)
         """, (
             lecture_date,
             int(lecture_number),
             subject,
             start_time,
-            end_time,
-            teacher_id,
-            class_id,
-            subject_id
+            end_time
         ))
 
         db.commit()
@@ -515,23 +290,9 @@ def get_lectures():
     with get_connection() as db:
 
         return db.execute("""
-            SELECT
-                l.*,
-                u.full_name AS teacher_name,
-                c.class_name
-
-            FROM lectures l
-
-            LEFT JOIN users u
-                ON l.teacher_id = u.id
-
-            LEFT JOIN classes c
-                ON l.class_id = c.id
-
-            ORDER BY
-                l.lecture_date DESC,
-                l.id DESC
-
+            SELECT *
+            FROM lectures
+            ORDER BY lecture_date DESC, id DESC
         """).fetchall()
 
 
@@ -540,21 +301,9 @@ def get_lecture(lecture_id):
     with get_connection() as db:
 
         return db.execute("""
-            SELECT
-                l.*,
-                u.full_name AS teacher_name,
-                c.class_name
-
-            FROM lectures l
-
-            LEFT JOIN users u
-                ON l.teacher_id = u.id
-
-            LEFT JOIN classes c
-                ON l.class_id = c.id
-
-            WHERE l.id = ?
-
+            SELECT *
+            FROM lectures
+            WHERE id = ?
         """, (lecture_id,)).fetchone()
 
 
@@ -572,12 +321,11 @@ def save_attendance(
 
         existing = db.execute("""
             SELECT id
-
             FROM lecture_attendance
 
             WHERE student_id = ?
-            AND lecture_id = ?
 
+            AND lecture_id = ?
         """, (
             student_id,
             lecture_id
@@ -591,8 +339,8 @@ def save_attendance(
                 SET status = ?
 
                 WHERE student_id = ?
-                AND lecture_id = ?
 
+                AND lecture_id = ?
             """, (
                 status,
                 student_id,
@@ -608,9 +356,7 @@ def save_attendance(
                     lecture_id,
                     status
                 )
-
                 VALUES (?, ?, ?)
-
             """, (
                 student_id,
                 lecture_id,
@@ -620,9 +366,7 @@ def save_attendance(
         db.commit()
 
 
-def get_lecture_attendance(
-    lecture_id
-):
+def get_lecture_attendance(lecture_id):
 
     with get_connection() as db:
 
@@ -631,7 +375,6 @@ def get_lecture_attendance(
                 s.id,
                 s.roll_number,
                 s.name,
-                s.email,
                 la.status
 
             FROM students s
@@ -643,15 +386,13 @@ def get_lecture_attendance(
                 AND la.lecture_id = ?
 
             ORDER BY
-                CAST(s.roll_number AS INTEGER)
+                CAST(s.roll_number AS INTEGER) ASC
 
-        """, (
-            lecture_id,
-        )).fetchall()
+        """, (lecture_id,)).fetchall()
 
 
 # =========================================================
-# REPORT
+# STUDENT ATTENDANCE REPORT
 # =========================================================
 
 def get_student_attendance():
@@ -689,13 +430,88 @@ def get_student_attendance():
                 s.name
 
             ORDER BY
-                CAST(s.roll_number AS INTEGER)
+                CAST(s.roll_number AS INTEGER) ASC
 
         """).fetchall()
 
 
 # =========================================================
-# TODAY
+# SINGLE STUDENT REPORT
+# =========================================================
+
+def get_single_student_attendance(student_id):
+
+    with get_connection() as db:
+
+        return db.execute("""
+            SELECT
+                s.id,
+                s.roll_number,
+                s.name,
+
+                COUNT(la.id) AS total,
+
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN la.status = 'Present'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ),
+                    0
+                ) AS present
+
+            FROM students s
+
+            LEFT JOIN lecture_attendance la
+
+                ON s.id = la.student_id
+
+            WHERE s.id = ?
+
+            GROUP BY
+                s.id,
+                s.roll_number,
+                s.name
+
+        """, (student_id,)).fetchone()
+
+
+# =========================================================
+# STUDENT HISTORY
+# =========================================================
+
+def get_student_history(student_id):
+
+    with get_connection() as db:
+
+        return db.execute("""
+            SELECT
+                l.lecture_date,
+                l.lecture_number,
+                l.subject,
+                l.start_time,
+                l.end_time,
+                la.status
+
+            FROM lecture_attendance la
+
+            INNER JOIN lectures l
+
+                ON la.lecture_id = l.id
+
+            WHERE la.student_id = ?
+
+            ORDER BY
+                l.lecture_date DESC,
+                l.id DESC
+
+        """, (student_id,)).fetchall()
+
+
+# =========================================================
+# TODAY ATTENDANCE
 # =========================================================
 
 def get_today_attendance(today):

@@ -14,14 +14,11 @@ def get_connection():
     return db
 
 
-# =========================================================
-# DATABASE SETUP
-# =========================================================
-
 def setup_database():
 
     with get_connection() as db:
 
+        # Students
         db.execute("""
             CREATE TABLE IF NOT EXISTS students (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,6 +27,7 @@ def setup_database():
             )
         """)
 
+        # Login accounts
         db.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,11 +36,12 @@ def setup_database():
                 role TEXT NOT NULL,
                 student_id INTEGER,
                 FOREIGN KEY(student_id)
-                REFERENCES students(id)
-                ON DELETE CASCADE
+                    REFERENCES students(id)
+                    ON DELETE CASCADE
             )
         """)
 
+        # Lectures
         db.execute("""
             CREATE TABLE IF NOT EXISTS lectures (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,39 +53,34 @@ def setup_database():
             )
         """)
 
+        # Attendance
         db.execute("""
             CREATE TABLE IF NOT EXISTS lecture_attendance (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-
                 student_id INTEGER NOT NULL,
                 lecture_id INTEGER NOT NULL,
-
                 status TEXT NOT NULL
-                CHECK(status IN ('Present', 'Absent')),
-
+                    CHECK(status IN ('Present', 'Absent')),
                 UNIQUE(student_id, lecture_id),
-
                 FOREIGN KEY(student_id)
-                REFERENCES students(id)
-                ON DELETE CASCADE,
-
+                    REFERENCES students(id)
+                    ON DELETE CASCADE,
                 FOREIGN KEY(lecture_id)
-                REFERENCES lectures(id)
-                ON DELETE CASCADE
+                    REFERENCES lectures(id)
+                    ON DELETE CASCADE
             )
         """)
 
         db.commit()
 
 
-# =========================================================
-# USER / LOGIN
-# =========================================================
+# =====================================================
+# LOGIN
+# =====================================================
 
 def teacher_exists():
 
     with get_connection() as db:
-
         result = db.execute("""
             SELECT id
             FROM users
@@ -126,7 +120,7 @@ def verify_login(username, password):
             WHERE username = ?
         """, (username,)).fetchone()
 
-        if not user:
+        if user is None:
             return None
 
         if check_password_hash(
@@ -138,9 +132,9 @@ def verify_login(username, password):
         return None
 
 
-# =========================================================
+# =====================================================
 # STUDENTS
-# =========================================================
+# =====================================================
 
 def get_students():
 
@@ -192,12 +186,7 @@ def add_student(roll, name, password):
 
         db.execute("""
             INSERT INTO users
-            (
-                username,
-                password,
-                role,
-                student_id
-            )
+            (username, password, role, student_id)
             VALUES (?, ?, ?, ?)
         """, (
             str(roll),
@@ -223,27 +212,9 @@ def delete_student(student_id):
         db.commit()
 
 
-def update_student(student_id, roll, name):
-
-    with get_connection() as db:
-
-        db.execute("""
-            UPDATE students
-            SET roll_number = ?,
-                name = ?
-            WHERE id = ?
-        """, (
-            int(roll),
-            name.strip(),
-            student_id
-        ))
-
-        db.commit()
-
-
-# =========================================================
+# =====================================================
 # LECTURES
-# =========================================================
+# =====================================================
 
 def add_lecture(
     lecture_date,
@@ -312,9 +283,9 @@ def delete_lecture(lecture_id):
         db.commit()
 
 
-# =========================================================
+# =====================================================
 # ATTENDANCE
-# =========================================================
+# =====================================================
 
 def save_attendance(
     student_id,
@@ -386,14 +357,13 @@ def get_lecture_attendance(lecture_id):
             ON s.id = la.student_id
             AND la.lecture_id = ?
 
-            ORDER BY
-                CAST(s.roll_number AS INTEGER)
+            ORDER BY CAST(s.roll_number AS INTEGER)
         """, (lecture_id,)).fetchall()
 
 
-# =========================================================
+# =====================================================
 # STUDENT ATTENDANCE
-# =========================================================
+# =====================================================
 
 def get_student_attendance(student_id):
 
@@ -430,7 +400,6 @@ def get_student_summary(student_id):
 
         return db.execute("""
             SELECT
-
                 COUNT(l.id) AS total,
 
                 COALESCE(
@@ -440,8 +409,7 @@ def get_student_summary(student_id):
                             THEN 1
                             ELSE 0
                         END
-                    ),
-                    0
+                    ), 0
                 ) AS present,
 
                 COALESCE(
@@ -451,8 +419,7 @@ def get_student_summary(student_id):
                             THEN 1
                             ELSE 0
                         END
-                    ),
-                    0
+                    ), 0
                 ) AS absent
 
             FROM lectures l
@@ -460,13 +427,12 @@ def get_student_summary(student_id):
             LEFT JOIN lecture_attendance la
             ON l.id = la.lecture_id
             AND la.student_id = ?
-
         """, (student_id,)).fetchone()
 
 
-# =========================================================
-# TEACHER DASHBOARD
-# =========================================================
+# =====================================================
+# DASHBOARD
+# =====================================================
 
 def get_dashboard_stats():
 
@@ -502,9 +468,9 @@ def get_dashboard_stats():
         }
 
 
-# =========================================================
-# ATTENDANCE REPORT
-# =========================================================
+# =====================================================
+# REPORT
+# =====================================================
 
 def get_attendance_report():
 
@@ -512,13 +478,10 @@ def get_attendance_report():
 
         return db.execute("""
             SELECT
-
                 s.roll_number,
                 s.name,
 
-                COUNT(
-                    la.id
-                ) AS total,
+                COUNT(la.id) AS total,
 
                 COALESCE(
                     SUM(
@@ -527,8 +490,7 @@ def get_attendance_report():
                             THEN 1
                             ELSE 0
                         END
-                    ),
-                    0
+                    ), 0
                 ) AS present,
 
                 COALESCE(
@@ -538,8 +500,7 @@ def get_attendance_report():
                             THEN 1
                             ELSE 0
                         END
-                    ),
-                    0
+                    ), 0
                 ) AS absent
 
             FROM students s
@@ -557,9 +518,9 @@ def get_attendance_report():
         """).fetchall()
 
 
-# =========================================================
+# =====================================================
 # SUBJECT REPORT
-# =========================================================
+# =====================================================
 
 def get_subject_report():
 
@@ -567,12 +528,8 @@ def get_subject_report():
 
         return db.execute("""
             SELECT
-
                 l.subject,
-
-                COUNT(
-                    la.id
-                ) AS total,
+                COUNT(la.id) AS total,
 
                 COALESCE(
                     SUM(
@@ -581,8 +538,7 @@ def get_subject_report():
                             THEN 1
                             ELSE 0
                         END
-                    ),
-                    0
+                    ), 0
                 ) AS present
 
             FROM lectures l
@@ -590,13 +546,12 @@ def get_subject_report():
             LEFT JOIN lecture_attendance la
             ON l.id = la.lecture_id
 
-            GROUP BY
-                l.subject
+            GROUP BY l.subject
 
-            ORDER BY
-                l.subject
+            ORDER BY l.subject
         """).fetchall()
 
 
+# Start database
 setup_database()
 ```

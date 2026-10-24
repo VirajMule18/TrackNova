@@ -1,4 +1,3 @@
-```python
 from flask import (
     Flask,
     request,
@@ -14,12 +13,12 @@ import database
 
 app = Flask(__name__)
 
-app.secret_key = "TRACKNOVA_SECRET_KEY_2026_CHANGE_THIS"
+app.secret_key = "TRACKNOVA_SECRET_2026_CHANGE_THIS"
 
 
-# =====================================================
-# DESIGN
-# =====================================================
+# =========================================================
+# BLACK + DIAMOND GREEN DESIGN
+# =========================================================
 
 STYLE = """
 
@@ -29,303 +28,928 @@ STYLE = """
     box-sizing: border-box;
 }
 
-body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background:
-        linear-gradient(135deg,#eef2ff,#f8fafc);
-    color: #172033;
+
+html {
+    scroll-behavior: smooth;
 }
+
+
+body {
+
+    margin: 0;
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+    color: #eafff3;
+
+    background:
+        radial-gradient(
+            circle at 20% 20%,
+            #063b25 0%,
+            transparent 25%
+        ),
+        radial-gradient(
+            circle at 80% 70%,
+            #06452c 0%,
+            transparent 25%
+        ),
+        #020403;
+
+    min-height: 100vh;
+
+    overflow-x: hidden;
+}
+
+
+/* =========================================================
+   ANIMATED DIAMONDS
+   ========================================================= */
+
+body::before {
+
+    content: "";
+
+    position: fixed;
+
+    inset: 0;
+
+    pointer-events: none;
+
+    z-index: -1;
+
+    background-image:
+
+        linear-gradient(
+            45deg,
+            transparent 45%,
+            rgba(0,255,140,.16) 50%,
+            transparent 55%
+        ),
+
+        linear-gradient(
+            -45deg,
+            transparent 45%,
+            rgba(0,255,140,.12) 50%,
+            transparent 55%
+        );
+
+    background-size:
+        90px 90px;
+
+    animation:
+        diamondMove 10s linear infinite;
+
+    opacity: .45;
+}
+
+
+@keyframes diamondMove {
+
+    from {
+        background-position:
+            0 0,
+            45px 45px;
+    }
+
+    to {
+        background-position:
+            180px 180px,
+            225px 225px;
+    }
+}
+
+
+/* =========================================================
+   NAVBAR
+   ========================================================= */
 
 .navbar {
+
     position: sticky;
+
     top: 0;
-    z-index: 100;
-    padding: 16px 6%;
+
+    z-index: 1000;
+
+    padding:
+        17px 6%;
+
     display: flex;
-    justify-content: space-between;
+
+    justify-content:
+        space-between;
+
     align-items: center;
-    background: #0f172a;
-    color: white;
-    box-shadow: 0 5px 25px rgba(0,0,0,.15);
+
+    background:
+        rgba(2,4,3,.90);
+
+    backdrop-filter:
+        blur(15px);
+
+    border-bottom:
+        1px solid rgba(0,255,140,.25);
+
+    box-shadow:
+        0 0 30px
+        rgba(0,255,140,.08);
 }
+
 
 .logo {
+
     font-size: 28px;
-    font-weight: bold;
+
+    font-weight: 900;
+
+    letter-spacing: 1px;
+
+    color: white;
 }
+
 
 .logo span {
-    color: #60a5fa;
+
+    color:
+        #00ff8c;
+
+    text-shadow:
+        0 0 15px
+        #00ff8c;
 }
 
+
 .navlinks {
+
     display: flex;
+
     gap: 10px;
+
     align-items: center;
+
     flex-wrap: wrap;
 }
 
+
+/* =========================================================
+   CONTAINER
+   ========================================================= */
+
 .container {
+
     width: 90%;
+
     max-width: 1250px;
-    margin: 35px auto;
+
+    margin:
+        35px auto;
 }
 
+
+/* =========================================================
+   HERO
+   ========================================================= */
+
 .hero {
-    padding: 50px 35px;
-    border-radius: 28px;
-    color: white;
+
+    position: relative;
+
+    overflow: hidden;
+
+    padding:
+        55px 40px;
+
+    border-radius:
+        28px;
+
     background:
         linear-gradient(
             135deg,
-            #2563eb,
-            #4f46e5,
-            #7c3aed
+            #030705,
+            #061d12,
+            #020403
         );
+
+    border:
+        1px solid
+        rgba(0,255,140,.45);
+
     box-shadow:
-        0 25px 60px
-        rgba(37,99,235,.25);
-    animation: fadeUp .7s ease;
+
+        0 0 25px
+        rgba(0,255,140,.12),
+
+        inset 0 0 40px
+        rgba(0,255,140,.035);
+
+    animation:
+        fadeUp .7s ease;
 }
+
+
+.hero::before {
+
+    content: "";
+
+    position: absolute;
+
+    width: 180px;
+
+    height: 180px;
+
+    right: 5%;
+
+    top: -60px;
+
+    transform:
+        rotate(45deg);
+
+    border:
+        2px solid
+        rgba(0,255,140,.35);
+
+    box-shadow:
+        0 0 30px
+        rgba(0,255,140,.18);
+
+    animation:
+        diamondSpin 8s linear infinite;
+}
+
+
+@keyframes diamondSpin {
+
+    0% {
+        transform:
+            rotate(45deg)
+            scale(1);
+    }
+
+    50% {
+        transform:
+            rotate(225deg)
+            scale(1.15);
+    }
+
+    100% {
+        transform:
+            rotate(405deg)
+            scale(1);
+    }
+}
+
 
 .hero h1 {
-    font-size: 42px;
-    margin: 0 0 10px;
+
+    position: relative;
+
+    z-index: 2;
+
+    font-size: 44px;
+
+    margin:
+        0 0 10px;
+
+    color: white;
 }
+
 
 .hero p {
+
+    position: relative;
+
+    z-index: 2;
+
     font-size: 18px;
-    opacity: .9;
+
+    color:
+        #a7f3c8;
 }
 
+
+/* =========================================================
+   GRID
+   ========================================================= */
+
 .grid {
+
     display: grid;
+
     grid-template-columns:
-        repeat(auto-fit,minmax(210px,1fr));
+        repeat(
+            auto-fit,
+            minmax(210px,1fr)
+        );
+
     gap: 20px;
 }
 
+
+/* =========================================================
+   CARDS
+   ========================================================= */
+
 .card {
-    background: white;
-    border-radius: 20px;
-    padding: 25px;
-    margin-bottom: 22px;
+
+    background:
+        rgba(5,10,8,.88);
+
+    border:
+        1px solid
+        rgba(0,255,140,.20);
+
+    border-radius:
+        20px;
+
+    padding:
+        25px;
+
+    margin-bottom:
+        22px;
+
     box-shadow:
-        0 12px 35px
-        rgba(15,23,42,.08);
-    animation: fadeUp .5s ease;
+        0 10px 35px
+        rgba(0,0,0,.45);
+
+    animation:
+        fadeUp .5s ease;
+
+    transition:
+        .3s;
 }
+
+
+.card:hover {
+
+    transform:
+        translateY(-4px);
+
+    border-color:
+        rgba(0,255,140,.55);
+
+    box-shadow:
+        0 0 25px
+        rgba(0,255,140,.12);
+}
+
+
+/* =========================================================
+   STATS
+   ========================================================= */
 
 .stat {
-    padding: 25px;
-    border-radius: 20px;
-    background: white;
+
+    padding:
+        25px;
+
+    border-radius:
+        20px;
+
+    background:
+        rgba(5,10,8,.9);
+
+    border:
+        1px solid
+        rgba(0,255,140,.2);
+
     box-shadow:
-        0 8px 25px
-        rgba(15,23,42,.07);
-    transition: .3s;
+        0 10px 30px
+        rgba(0,0,0,.4);
+
+    transition:
+        .3s;
 }
+
 
 .stat:hover {
-    transform: translateY(-6px);
+
+    transform:
+        translateY(-7px)
+        scale(1.02);
+
+    border-color:
+        #00ff8c;
+
+    box-shadow:
+        0 0 25px
+        rgba(0,255,140,.18);
 }
+
 
 .stat h3 {
-    color: #64748b;
+
+    color:
+        #8fbea5;
 }
 
+
 .stat strong {
-    display: block;
-    font-size: 35px;
-    color: #2563eb;
+
+    display:
+        block;
+
+    font-size:
+        36px;
+
+    color:
+        #00ff8c;
+
+    text-shadow:
+        0 0 15px
+        rgba(0,255,140,.45);
 }
+
+
+/* =========================================================
+   INPUTS
+   ========================================================= */
 
 input,
 select {
-    width: 100%;
-    padding: 13px;
-    margin: 7px 0 15px;
-    border: 1px solid #d1d5db;
-    border-radius: 12px;
-    font-size: 15px;
+
+    width:
+        100%;
+
+    padding:
+        13px;
+
+    margin:
+        7px 0 15px;
+
+    border:
+        1px solid
+        #24553d;
+
+    border-radius:
+        12px;
+
+    font-size:
+        15px;
+
+    color:
+        #eafff3;
+
+    background:
+        #07100b;
 }
+
 
 input:focus,
 select:focus {
-    outline: none;
-    border-color: #2563eb;
+
+    outline:
+        none;
+
+    border-color:
+        #00ff8c;
+
     box-shadow:
-        0 0 0 4px
-        rgba(37,99,235,.1);
+        0 0 0 3px
+        rgba(0,255,140,.12);
 }
 
+
 label {
-    font-weight: bold;
+
+    font-weight:
+        bold;
+
+    color:
+        #b8e8ca;
 }
+
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
 
 button,
 .btn {
-    border: none;
-    padding: 12px 18px;
-    border-radius: 12px;
-    background: #2563eb;
-    color: white;
-    font-weight: bold;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-block;
-    transition: .25s;
+
+    border:
+        1px solid
+        rgba(0,255,140,.5);
+
+    padding:
+        12px 18px;
+
+    border-radius:
+        12px;
+
+    background:
+        #073b25;
+
+    color:
+        #eafff3;
+
+    font-weight:
+        bold;
+
+    cursor:
+        pointer;
+
+    text-decoration:
+        none;
+
+    display:
+        inline-block;
+
+    transition:
+        .25s;
+
+    box-shadow:
+        0 0 12px
+        rgba(0,255,140,.08);
 }
+
 
 button:hover,
 .btn:hover {
-    transform: translateY(-2px);
-    background: #1d4ed8;
+
+    transform:
+        translateY(-2px);
+
+    background:
+        #00b86b;
+
+    color:
+        #001a0d;
+
+    border-color:
+        #00ff8c;
+
+    box-shadow:
+        0 0 22px
+        rgba(0,255,140,.3);
 }
+
 
 .btn-purple {
-    background: #7c3aed;
+
+    background:
+        #063d28;
 }
+
 
 .btn-green {
-    background: #16a34a;
+
+    background:
+        #087a47;
 }
+
 
 .btn-red {
-    background: #dc2626;
+
+    background:
+        #451515;
+
+    border-color:
+        #a83232;
 }
+
 
 .btn-gray {
-    background: #64748b;
+
+    background:
+        #17221c;
 }
 
-table {
-    width: 100%;
-    border-collapse: collapse;
+
+/* =========================================================
+   TABLE
+   ========================================================= */
+
+.table-container {
+
+    overflow-x:
+        auto;
 }
+
+
+table {
+
+    width:
+        100%;
+
+    border-collapse:
+        collapse;
+}
+
 
 th,
 td {
-    padding: 13px;
-    text-align: left;
-    border-bottom: 1px solid #e5e7eb;
+
+    padding:
+        13px;
+
+    text-align:
+        left;
+
+    border-bottom:
+        1px solid
+        #173426;
 }
+
 
 th {
-    background: #f8fafc;
+
+    background:
+        #07140d;
+
+    color:
+        #00ff8c;
 }
+
+
+tr:hover td {
+
+    background:
+        rgba(0,255,140,.035);
+}
+
+
+/* =========================================================
+   BADGES
+   ========================================================= */
 
 .badge {
-    display: inline-block;
-    padding: 7px 11px;
-    border-radius: 30px;
-    font-size: 12px;
-    font-weight: bold;
+
+    display:
+        inline-block;
+
+    padding:
+        7px 11px;
+
+    border-radius:
+        30px;
+
+    font-size:
+        12px;
+
+    font-weight:
+        bold;
 }
+
 
 .present {
-    background: #dcfce7;
-    color: #15803d;
+
+    background:
+        #063b24;
+
+    color:
+        #54ffae;
+
+    border:
+        1px solid
+        #00c976;
 }
+
 
 .absent {
-    background: #fee2e2;
-    color: #b91c1c;
+
+    background:
+        #421717;
+
+    color:
+        #ff9090;
+
+    border:
+        1px solid
+        #a83a3a;
 }
+
 
 .notmarked {
-    background: #fef3c7;
-    color: #92400e;
+
+    background:
+        #3d3610;
+
+    color:
+        #ffe76a;
 }
+
+
+/* =========================================================
+   MESSAGES
+   ========================================================= */
 
 .error {
-    background: #fee2e2;
-    color: #991b1b;
-    padding: 13px;
-    border-radius: 12px;
-    margin-bottom: 15px;
+
+    background:
+        #3b1212;
+
+    color:
+        #ff9b9b;
+
+    border:
+        1px solid
+        #9b3434;
+
+    padding:
+        13px;
+
+    border-radius:
+        12px;
+
+    margin-bottom:
+        15px;
 }
+
 
 .success {
-    background: #dcfce7;
-    color: #166534;
-    padding: 13px;
-    border-radius: 12px;
-    margin-bottom: 15px;
+
+    background:
+        #063b24;
+
+    color:
+        #61ffb2;
+
+    border:
+        1px solid
+        #00c976;
+
+    padding:
+        13px;
+
+    border-radius:
+        12px;
+
+    margin-bottom:
+        15px;
 }
+
+
+/* =========================================================
+   LOGIN
+   ========================================================= */
 
 .login-box {
-    max-width: 450px;
-    margin: 70px auto;
+
+    max-width:
+        450px;
+
+    margin:
+        70px auto;
 }
+
 
 .center {
-    text-align: center;
+
+    text-align:
+        center;
 }
+
 
 .icon {
-    font-size: 45px;
+
+    font-size:
+        45px;
+
+    filter:
+        drop-shadow(
+            0 0 10px
+            rgba(0,255,140,.5)
+        );
 }
+
 
 .flex {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    align-items: center;
+
+    display:
+        flex;
+
+    gap:
+        10px;
+
+    flex-wrap:
+        wrap;
+
+    align-items:
+        center;
 }
+
+
+/* =========================================================
+   PROGRESS
+   ========================================================= */
 
 .progress {
-    width: 100%;
-    height: 16px;
-    background: #e5e7eb;
-    border-radius: 30px;
-    overflow: hidden;
+
+    width:
+        100%;
+
+    height:
+        16px;
+
+    background:
+        #101a14;
+
+    border-radius:
+        30px;
+
+    overflow:
+        hidden;
+
+    border:
+        1px solid
+        #1d4a34;
 }
 
+
 .progress-bar {
-    height: 100%;
+
+    height:
+        100%;
+
     background:
         linear-gradient(
             90deg,
-            #2563eb,
-            #7c3aed
+            #00a85d,
+            #00ff8c,
+            #9affc9
         );
-    border-radius: 30px;
+
+    box-shadow:
+        0 0 15px
+        #00ff8c;
+
+    border-radius:
+        30px;
+
+    transition:
+        width 1s ease;
 }
 
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+
 .footer {
-    text-align: center;
-    padding: 30px;
-    color: #64748b;
+
+    text-align:
+        center;
+
+    padding:
+        30px;
+
+    color:
+        #5f8f72;
 }
+
+
+/* =========================================================
+   ANIMATIONS
+   ========================================================= */
 
 @keyframes fadeUp {
 
     from {
-        opacity: 0;
-        transform: translateY(20px);
+
+        opacity:
+            0;
+
+        transform:
+            translateY(20px);
     }
 
     to {
-        opacity: 1;
-        transform: translateY(0);
+
+        opacity:
+            1;
+
+        transform:
+            translateY(0);
     }
 }
+
 
 @media(max-width:700px) {
 
     .navbar {
-        flex-direction: column;
-        gap: 12px;
+
+        flex-direction:
+            column;
+
+        gap:
+            12px;
     }
+
 
     .hero h1 {
-        font-size: 32px;
+
+        font-size:
+            32px;
     }
 
+
     table {
-        font-size: 12px;
+
+        font-size:
+            12px;
     }
 
 }
@@ -334,9 +958,9 @@ th {
 """
 
 
-# =====================================================
+# =========================================================
 # LOGIN PROTECTION
-# =====================================================
+# =========================================================
 
 def teacher_required(function):
 
@@ -344,6 +968,7 @@ def teacher_required(function):
     def wrapper(*args, **kwargs):
 
         if session.get("role") != "teacher":
+
             return redirect(
                 url_for("teacher_login")
             )
@@ -359,6 +984,7 @@ def student_required(function):
     def wrapper(*args, **kwargs):
 
         if session.get("role") != "student":
+
             return redirect(
                 url_for("student_login")
             )
@@ -368,9 +994,9 @@ def student_required(function):
     return wrapper
 
 
-# =====================================================
+# =========================================================
 # HOME
-# =====================================================
+# =========================================================
 
 @app.route("/")
 def home():
@@ -393,52 +1019,62 @@ def home():
 
 <div class="navbar">
 
-<div class="logo">
-Track<span>Nova</span>
-</div>
+    <div class="logo">
+        Track<span>Nova</span>
+    </div>
 
-<div class="navlinks">
+    <div class="navlinks">
 
-<a class="btn"
-href="{{ url_for('teacher_login') }}">
-👨‍🏫 Teacher
-</a>
+        <a
+        class="btn"
+        href="{{ url_for('teacher_login') }}"
+        >
+        👨‍🏫 Teacher
+        </a>
 
-<a class="btn btn-purple"
-href="{{ url_for('student_login') }}">
-👨‍🎓 Student
-</a>
+        <a
+        class="btn"
+        href="{{ url_for('student_login') }}"
+        >
+        👨‍🎓 Student
+        </a>
 
-</div>
+    </div>
 
 </div>
 
 
 <div class="container">
 
+
 <div class="hero">
 
-<h1>
-TrackNova
-</h1>
+    <h1>
+        TrackNova
+    </h1>
 
-<p>
-Smart College Attendance Management System
-</p>
+    <p>
+        Smart College Attendance
+        Management System
+    </p>
 
-<div class="flex">
+    <div class="flex">
 
-<a class="btn"
-href="{{ url_for('teacher_login') }}">
-Teacher Login
-</a>
+        <a
+        class="btn"
+        href="{{ url_for('teacher_login') }}"
+        >
+        Teacher Login
+        </a>
 
-<a class="btn btn-purple"
-href="{{ url_for('student_login') }}">
-Student Login
-</a>
+        <a
+        class="btn"
+        href="{{ url_for('student_login') }}"
+        >
+        Student Login
+        </a>
 
-</div>
+    </div>
 
 </div>
 
@@ -448,64 +1084,77 @@ Student Login
 
 <div class="grid">
 
+
 <div class="card center">
 
-<div class="icon">📊</div>
+    <div class="icon">
+        ◈
+    </div>
 
-<h2>
-Smart Dashboard
-</h2>
+    <h2>
+        Smart Dashboard
+    </h2>
 
-<p>
-Manage attendance easily.
-</p>
+    <p>
+        Manage attendance easily.
+    </p>
 
 </div>
 
 
 <div class="card center">
 
-<div class="icon">🔐</div>
+    <div class="icon">
+        ◆
+    </div>
 
-<h2>
-Secure Login
-</h2>
+    <h2>
+        Secure Login
+    </h2>
 
-<p>
-Separate teacher and student accounts.
-</p>
-
-</div>
-
-
-<div class="card center">
-
-<div class="icon">📈</div>
-
-<h2>
-Attendance Analytics
-</h2>
-
-<p>
-Automatic attendance percentage.
-</p>
+    <p>
+        Separate teacher and
+        student accounts.
+    </p>
 
 </div>
 
 
 <div class="card center">
 
-<div class="icon">📱</div>
+    <div class="icon">
+        ◇
+    </div>
 
-<h2>
-Mobile Friendly
-</h2>
+    <h2>
+        Attendance Analytics
+    </h2>
 
-<p>
-Works on mobile and computer.
-</p>
+    <p>
+        Automatic attendance
+        percentage.
+    </p>
 
 </div>
+
+
+<div class="card center">
+
+    <div class="icon">
+        ◈
+    </div>
+
+    <h2>
+        Mobile Friendly
+    </h2>
+
+    <p>
+        Works on mobile and
+        computer.
+    </p>
+
+</div>
+
 
 </div>
 
@@ -514,7 +1163,7 @@ Works on mobile and computer.
 
 <div class="footer">
 
-TrackNova © 2026
+    TrackNova © 2026
 
 </div>
 
@@ -526,13 +1175,13 @@ TrackNova © 2026
 """, style=STYLE)
 
 
-# =====================================================
-# FIRST TEACHER SETUP
-# =====================================================
+# =========================================================
+# TEACHER SETUP
+# =========================================================
 
 @app.route(
     "/setup-teacher",
-    methods=["GET","POST"]
+    methods=["GET", "POST"]
 )
 def setup_teacher():
 
@@ -549,11 +1198,13 @@ def setup_teacher():
     if request.method == "POST":
 
         password = request.form.get(
-            "password"
+            "password",
+            ""
         )
 
         confirm = request.form.get(
-            "confirm"
+            "confirm",
+            ""
         )
 
 
@@ -566,7 +1217,9 @@ def setup_teacher():
 
         elif password != confirm:
 
-            error = "Passwords do not match."
+            error = (
+                "Passwords do not match."
+            )
 
         else:
 
@@ -595,6 +1248,7 @@ def setup_teacher():
 
 <body>
 
+
 <div class="container">
 
 <div class="login-box card">
@@ -602,15 +1256,16 @@ def setup_teacher():
 <div class="center">
 
 <div class="icon">
-👨‍🏫
+    ◆
 </div>
 
 <h2>
-Create Teacher Account
+    Create Teacher Account
 </h2>
 
 <p>
-Username: <b>teacher</b>
+    Username:
+    <b>teacher</b>
 </p>
 
 </div>
@@ -619,7 +1274,7 @@ Username: <b>teacher</b>
 {% if error %}
 
 <div class="error">
-{{ error }}
+    {{ error }}
 </div>
 
 {% endif %}
@@ -628,30 +1283,35 @@ Username: <b>teacher</b>
 <form method="POST">
 
 <label>
-Create Password
+    Create Password
 </label>
 
 <input
-type="password"
-name="password"
-required
+    type="password"
+    name="password"
+    minlength="6"
+    required
 >
+
 
 <label>
-Confirm Password
+    Confirm Password
 </label>
 
 <input
-type="password"
-name="confirm"
-required
+    type="password"
+    name="confirm"
+    minlength="6"
+    required
 >
 
+
 <button>
-Create Account
+    Create Account
 </button>
 
 </form>
+
 
 </div>
 
@@ -664,13 +1324,13 @@ Create Account
 """, style=STYLE)
 
 
-# =====================================================
+# =========================================================
 # TEACHER LOGIN
-# =====================================================
+# =========================================================
 
 @app.route(
     "/teacher-login",
-    methods=["GET","POST"]
+    methods=["GET", "POST"]
 )
 def teacher_login():
 
@@ -687,11 +1347,13 @@ def teacher_login():
     if request.method == "POST":
 
         username = request.form.get(
-            "username"
+            "username",
+            ""
         )
 
         password = request.form.get(
-            "password"
+            "password",
+            ""
         )
 
 
@@ -701,7 +1363,10 @@ def teacher_login():
         )
 
 
-        if user and user["role"] == "teacher":
+        if (
+            user
+            and user["role"] == "teacher"
+        ):
 
             session.clear()
 
@@ -714,7 +1379,9 @@ def teacher_login():
             )
 
 
-        error = "❌ Wrong username or password."
+        error = (
+            "Wrong username or password."
+        )
 
 
     return render_template_string("""
@@ -733,6 +1400,7 @@ def teacher_login():
 
 <body>
 
+
 <div class="container">
 
 <div class="login-box card">
@@ -740,11 +1408,11 @@ def teacher_login():
 <div class="center">
 
 <div class="icon">
-👨‍🏫
+    ◆
 </div>
 
 <h2>
-Teacher Login
+    Teacher Login
 </h2>
 
 </div>
@@ -753,7 +1421,7 @@ Teacher Login
 {% if error %}
 
 <div class="error">
-{{ error }}
+    {{ error }}
 </div>
 
 {% endif %}
@@ -762,39 +1430,45 @@ Teacher Login
 <form method="POST">
 
 <label>
-Username
+    Username
 </label>
 
 <input
-type="text"
-name="username"
-placeholder="teacher"
-required
+    type="text"
+    name="username"
+    placeholder="teacher"
+    required
 >
+
 
 <label>
-Password
+    Password
 </label>
 
 <input
-type="password"
-name="password"
-required
+    type="password"
+    name="password"
+    required
 >
 
+
 <button>
-Login
+    Login
 </button>
 
 </form>
 
+
 <br>
+
 
 <a
 class="btn btn-gray"
-href="{{ url_for('home') }}">
-← Back
+href="{{ url_for('home') }}"
+>
+    ← Back
 </a>
+
 
 </div>
 
@@ -807,13 +1481,13 @@ href="{{ url_for('home') }}">
 """, style=STYLE)
 
 
-# =====================================================
+# =========================================================
 # STUDENT LOGIN
-# =====================================================
+# =========================================================
 
 @app.route(
     "/student-login",
-    methods=["GET","POST"]
+    methods=["GET", "POST"]
 )
 def student_login():
 
@@ -823,11 +1497,13 @@ def student_login():
     if request.method == "POST":
 
         username = request.form.get(
-            "username"
+            "username",
+            ""
         )
 
         password = request.form.get(
-            "password"
+            "password",
+            ""
         )
 
 
@@ -837,7 +1513,10 @@ def student_login():
         )
 
 
-        if user and user["role"] == "student":
+        if (
+            user
+            and user["role"] == "student"
+        ):
 
             session.clear()
 
@@ -855,7 +1534,7 @@ def student_login():
 
 
         error = (
-            "❌ Wrong roll number or password."
+            "Wrong roll number or password."
         )
 
 
@@ -875,6 +1554,7 @@ def student_login():
 
 <body>
 
+
 <div class="container">
 
 <div class="login-box card">
@@ -882,11 +1562,11 @@ def student_login():
 <div class="center">
 
 <div class="icon">
-👨‍🎓
+    ◆
 </div>
 
 <h2>
-Student Login
+    Student Login
 </h2>
 
 </div>
@@ -895,7 +1575,7 @@ Student Login
 {% if error %}
 
 <div class="error">
-{{ error }}
+    {{ error }}
 </div>
 
 {% endif %}
@@ -904,39 +1584,45 @@ Student Login
 <form method="POST">
 
 <label>
-Roll Number
+    Roll Number
 </label>
 
 <input
-type="text"
-name="username"
-placeholder="Enter roll number"
-required
+    type="text"
+    name="username"
+    placeholder="Enter roll number"
+    required
 >
+
 
 <label>
-Password
+    Password
 </label>
 
 <input
-type="password"
-name="password"
-required
+    type="password"
+    name="password"
+    required
 >
 
+
 <button>
-Login
+    Login
 </button>
 
 </form>
 
+
 <br>
+
 
 <a
 class="btn btn-gray"
-href="{{ url_for('home') }}">
-← Back
+href="{{ url_for('home') }}"
+>
+    ← Back
 </a>
+
 
 </div>
 
@@ -949,9 +1635,9 @@ href="{{ url_for('home') }}">
 """, style=STYLE)
 
 
-# =====================================================
+# =========================================================
 # TEACHER DASHBOARD
-# =====================================================
+# =========================================================
 
 @app.route("/teacher")
 @teacher_required
@@ -986,19 +1672,22 @@ def teacher_dashboard():
 <div class="navbar">
 
 <div class="logo">
-Track<span>Nova</span>
+    Track<span>Nova</span>
 </div>
+
 
 <div class="navlinks">
 
 <span>
-👨‍🏫 Teacher
+    ◆ Teacher
 </span>
+
 
 <a
 class="btn btn-red"
-href="{{ url_for('logout') }}">
-Logout
+href="{{ url_for('logout') }}"
+>
+    Logout
 </a>
 
 </div>
@@ -1012,11 +1701,12 @@ Logout
 <div class="hero">
 
 <h1>
-Teacher Dashboard
+    Teacher Dashboard
 </h1>
 
 <p>
-Manage students, lectures and attendance.
+    Manage students, lectures
+    and attendance.
 </p>
 
 </div>
@@ -1031,11 +1721,11 @@ Manage students, lectures and attendance.
 <div class="stat">
 
 <h3>
-👨‍🎓 Students
+    Students
 </h3>
 
 <strong>
-{{ stats.students }}
+    {{ stats.students }}
 </strong>
 
 </div>
@@ -1044,11 +1734,11 @@ Manage students, lectures and attendance.
 <div class="stat">
 
 <h3>
-📚 Lectures
+    Lectures
 </h3>
 
 <strong>
-{{ stats.lectures }}
+    {{ stats.lectures }}
 </strong>
 
 </div>
@@ -1057,11 +1747,11 @@ Manage students, lectures and attendance.
 <div class="stat">
 
 <h3>
-✅ Present
+    Present
 </h3>
 
 <strong>
-{{ stats.present }}
+    {{ stats.present }}
 </strong>
 
 </div>
@@ -1070,14 +1760,15 @@ Manage students, lectures and attendance.
 <div class="stat">
 
 <h3>
-❌ Absent
+    Absent
 </h3>
 
 <strong>
-{{ stats.absent }}
+    {{ stats.absent }}
 </strong>
 
 </div>
+
 
 </div>
 
@@ -1090,26 +1781,29 @@ Manage students, lectures and attendance.
 <div class="card">
 
 <h2>
-➕ Add Student
+    ◆ Add Student
 </h2>
+
 
 <form
 method="POST"
 action="{{ url_for('add_student') }}"
 >
 
+
 <div class="grid">
 
+
 <div>
 
 <label>
-Roll Number
+    Roll Number
 </label>
 
 <input
-type="number"
-name="roll"
-required
+    type="number"
+    name="roll"
+    required
 >
 
 </div>
@@ -1118,13 +1812,13 @@ required
 <div>
 
 <label>
-Student Name
+    Student Name
 </label>
 
 <input
-type="text"
-name="name"
-required
+    type="text"
+    name="name"
+    required
 >
 
 </div>
@@ -1133,23 +1827,26 @@ required
 <div>
 
 <label>
-Student Password
+    Student Password
 </label>
 
 <input
-type="password"
-name="password"
-required
+    type="password"
+    name="password"
+    minlength="6"
+    required
 >
 
 </div>
+
 
 </div>
 
 
 <button>
-Add Student
+    Add Student
 </button>
+
 
 </form>
 
@@ -1161,26 +1858,29 @@ Add Student
 <div class="card">
 
 <h2>
-📚 Create Lecture
+    ◇ Create Lecture
 </h2>
+
 
 <form
 method="POST"
 action="{{ url_for('add_lecture') }}"
 >
 
+
 <div class="grid">
 
+
 <div>
 
 <label>
-Date
+    Date
 </label>
 
 <input
-type="date"
-name="lecture_date"
-required
+    type="date"
+    name="lecture_date"
+    required
 >
 
 </div>
@@ -1189,13 +1889,14 @@ required
 <div>
 
 <label>
-Lecture Number
+    Lecture Number
 </label>
 
 <input
-type="number"
-name="lecture_number"
-required
+    type="number"
+    name="lecture_number"
+    min="1"
+    required
 >
 
 </div>
@@ -1204,13 +1905,13 @@ required
 <div>
 
 <label>
-Subject
+    Subject
 </label>
 
 <input
-type="text"
-name="subject"
-required
+    type="text"
+    name="subject"
+    required
 >
 
 </div>
@@ -1219,13 +1920,13 @@ required
 <div>
 
 <label>
-Start Time
+    Start Time
 </label>
 
 <input
-type="time"
-name="start_time"
-required
+    type="time"
+    name="start_time"
+    required
 >
 
 </div>
@@ -1234,23 +1935,25 @@ required
 <div>
 
 <label>
-End Time
+    End Time
 </label>
 
 <input
-type="time"
-name="end_time"
-required
+    type="time"
+    name="end_time"
+    required
 >
 
 </div>
+
 
 </div>
 
 
 <button>
-Create Lecture
+    Create Lecture
 </button>
+
 
 </form>
 
@@ -1262,24 +1965,26 @@ Create Lecture
 <div class="card">
 
 <h2>
-👥 Students
+    ◆ Students
 </h2>
 
+
+<div class="table-container">
 
 <table>
 
 <tr>
 
 <th>
-Roll No.
+    Roll No.
 </th>
 
 <th>
-Name
+    Name
 </th>
 
 <th>
-Action
+    Action
 </th>
 
 </tr>
@@ -1290,19 +1995,24 @@ Action
 <tr>
 
 <td>
-{{ s.roll_number }}
+    {{ s.roll_number }}
 </td>
 
 <td>
-{{ s.name }}
+    {{ s.name }}
 </td>
 
 <td>
 
 <a
 class="btn btn-red"
-href="{{ url_for('delete_student', student_id=s.id) }}"
-onclick="return confirm('Delete this student?')"
+href="{{ url_for(
+    'delete_student',
+    student_id=s.id
+) }}"
+onclick="return confirm(
+'Delete this student?'
+)"
 >
 Delete
 </a>
@@ -1317,34 +2027,38 @@ Delete
 
 </div>
 
+</div>
+
 
 <!-- LECTURES -->
 
 <div class="card">
 
 <h2>
-📚 Lectures
+    ◆ Lectures
 </h2>
 
+
+<div class="table-container">
 
 <table>
 
 <tr>
 
 <th>
-Date
+    Date
 </th>
 
 <th>
-Lecture
+    Lecture
 </th>
 
 <th>
-Subject
+    Subject
 </th>
 
 <th>
-Attendance
+    Attendance
 </th>
 
 </tr>
@@ -1355,24 +2069,27 @@ Attendance
 <tr>
 
 <td>
-{{ l.lecture_date }}
+    {{ l.lecture_date }}
 </td>
 
 <td>
-{{ l.lecture_number }}
+    {{ l.lecture_number }}
 </td>
 
 <td>
-{{ l.subject }}
+    {{ l.subject }}
 </td>
 
 <td>
 
 <a
 class="btn"
-href="{{ url_for('mark_attendance', lecture_id=l.id) }}"
+href="{{ url_for(
+    'mark_attendance',
+    lecture_id=l.id
+) }}"
 >
-Mark Attendance
+    Mark Attendance
 </a>
 
 </td>
@@ -1385,39 +2102,35 @@ Mark Attendance
 
 </div>
 
+</div>
+
 
 <!-- REPORT -->
 
 <div class="card">
 
 <h2>
-📊 Attendance Report
+    ◈ Attendance Report
 </h2>
 
+
+<div class="table-container">
 
 <table>
 
 <tr>
 
-<th>
-Roll
-</th>
+<th>Roll</th>
 
-<th>
-Name
-</th>
+<th>Name</th>
 
-<th>
-Present
-</th>
+<th>Present</th>
 
-<th>
-Total
-</th>
+<th>Absent</th>
 
-<th>
-Percentage
-</th>
+<th>Total</th>
+
+<th>Percentage</th>
 
 </tr>
 
@@ -1425,7 +2138,9 @@ Percentage
 {% for r in reports %}
 
 {% set percentage =
-(r.present * 100 / r.total)
+(
+r.present * 100 / r.total
+)
 if r.total else 0
 %}
 
@@ -1433,19 +2148,23 @@ if r.total else 0
 <tr>
 
 <td>
-{{ r.roll_number }}
+    {{ r.roll_number }}
 </td>
 
 <td>
-{{ r.name }}
+    {{ r.name }}
 </td>
 
 <td>
-{{ r.present }}
+    {{ r.present }}
 </td>
 
 <td>
-{{ r.total }}
+    {{ r.absent }}
+</td>
+
+<td>
+    {{ r.total }}
 </td>
 
 <td>
@@ -1454,25 +2173,30 @@ if r.total else 0
 {{ "%.1f"|format(percentage) }}%
 </b>
 
+
 <br>
+
 
 <div class="progress">
 
 <div
 class="progress-bar"
-style="width: {{ percentage }}%">
+style="width: {{ percentage }}%"
+>
 </div>
 
 </div>
+
 
 </td>
 
 </tr>
 
-
 {% endfor %}
 
 </table>
+
+</div>
 
 </div>
 
@@ -1482,7 +2206,7 @@ style="width: {{ percentage }}%">
 
 <div class="footer">
 
-TrackNova Teacher Panel
+    ◆ TrackNova Teacher Panel ◆
 
 </div>
 
@@ -1494,9 +2218,9 @@ TrackNova Teacher Panel
 """, style=STYLE)
 
 
-# =====================================================
+# =========================================================
 # ADD STUDENT
-# =====================================================
+# =========================================================
 
 @app.route(
     "/add-student",
@@ -1526,9 +2250,9 @@ def add_student():
     )
 
 
-# =====================================================
+# =========================================================
 # DELETE STUDENT
-# =====================================================
+# =========================================================
 
 @app.route(
     "/delete-student/<int:student_id>"
@@ -1540,14 +2264,15 @@ def delete_student(student_id):
         student_id
     )
 
+
     return redirect(
         url_for("teacher_dashboard")
     )
 
 
-# =====================================================
+# =========================================================
 # ADD LECTURE
-# =====================================================
+# =========================================================
 
 @app.route(
     "/add-lecture",
@@ -1585,13 +2310,13 @@ def add_lecture():
     )
 
 
-# =====================================================
+# =========================================================
 # MARK ATTENDANCE
-# =====================================================
+# =========================================================
 
 @app.route(
     "/attendance/<int:lecture_id>",
-    methods=["GET","POST"]
+    methods=["GET", "POST"]
 )
 @teacher_required
 def mark_attendance(lecture_id):
@@ -1599,6 +2324,14 @@ def mark_attendance(lecture_id):
     lecture = database.get_lecture(
         lecture_id
     )
+
+
+    if lecture is None:
+
+        return redirect(
+            url_for("teacher_dashboard")
+        )
+
 
     students = database.get_lecture_attendance(
         lecture_id
@@ -1613,14 +2346,18 @@ def mark_attendance(lecture_id):
                 f"status_{student['id']}"
             )
 
+
             if status in [
                 "Present",
                 "Absent"
             ]:
 
                 database.save_attendance(
+
                     student["id"],
+
                     lecture_id,
+
                     status
                 )
 
@@ -1647,19 +2384,22 @@ def mark_attendance(lecture_id):
 
 </head>
 
+
 <body>
 
 
 <div class="navbar">
 
 <div class="logo">
-Track<span>Nova</span>
+    Track<span>Nova</span>
 </div>
+
 
 <a
 class="btn btn-gray"
-href="{{ url_for('teacher_dashboard') }}">
-← Dashboard
+href="{{ url_for('teacher_dashboard') }}"
+>
+    ← Dashboard
 </a>
 
 </div>
@@ -1671,15 +2411,21 @@ href="{{ url_for('teacher_dashboard') }}">
 <div class="hero">
 
 <h1>
-Mark Attendance
+    Mark Attendance
 </h1>
 
 <p>
+
 {{ lecture.subject }}
+
 |
+
 {{ lecture.lecture_date }}
+
 |
+
 Lecture {{ lecture.lecture_number }}
+
 </p>
 
 </div>
@@ -1694,20 +2440,22 @@ Lecture {{ lecture.lecture_number }}
 <div class="card">
 
 
+<div class="table-container">
+
 <table>
 
 <tr>
 
 <th>
-Roll
+    Roll
 </th>
 
 <th>
-Student
+    Student
 </th>
 
 <th>
-Status
+    Status
 </th>
 
 </tr>
@@ -1718,15 +2466,14 @@ Status
 <tr>
 
 <td>
-{{ s.roll_number }}
+    {{ s.roll_number }}
 </td>
 
 <td>
-{{ s.name }}
+    {{ s.name }}
 </td>
 
 <td>
-
 
 <select
 name="status_{{ s.id }}"
@@ -1734,6 +2481,7 @@ name="status_{{ s.id }}"
 
 <option
 value="Present"
+
 {% if s.status == "Present" %}
 selected
 {% endif %}
@@ -1744,6 +2492,7 @@ Present
 
 <option
 value="Absent"
+
 {% if s.status == "Absent" %}
 selected
 {% endif %}
@@ -1751,9 +2500,7 @@ selected
 Absent
 </option>
 
-
 </select>
-
 
 </td>
 
@@ -1763,17 +2510,20 @@ Absent
 
 </table>
 
+</div>
+
 
 <br>
 
 
 <button class="btn-green">
-💾 Save Attendance
+
+    ◆ Save Attendance
+
 </button>
 
 
 </div>
-
 
 </form>
 
@@ -1788,9 +2538,9 @@ Absent
 """, style=STYLE)
 
 
-# =====================================================
+# =========================================================
 # STUDENT DASHBOARD
-# =====================================================
+# =========================================================
 
 @app.route("/student")
 @student_required
@@ -1804,6 +2554,15 @@ def student_dashboard():
     student = database.get_student(
         student_id
     )
+
+
+    if student is None:
+
+        session.clear()
+
+        return redirect(
+            url_for("student_login")
+        )
 
 
     attendance = database.get_student_attendance(
@@ -1820,9 +2579,17 @@ def student_dashboard():
 
     present = summary["present"]
 
+    absent = summary["absent"]
+
+
     percentage = (
+
         present * 100 / total
-        if total else 0
+
+        if total
+
+        else 0
+
     )
 
 
@@ -1840,25 +2607,29 @@ def student_dashboard():
 
 </head>
 
+
 <body>
 
 
 <div class="navbar">
 
 <div class="logo">
-Track<span>Nova</span>
+    Track<span>Nova</span>
 </div>
+
 
 <div class="navlinks">
 
 <span>
-👨‍🎓 {{ student.name }}
+    ◆ {{ student.name }}
 </span>
+
 
 <a
 class="btn btn-red"
-href="{{ url_for('logout') }}">
-Logout
+href="{{ url_for('logout') }}"
+>
+    Logout
 </a>
 
 </div>
@@ -1872,11 +2643,12 @@ Logout
 <div class="hero">
 
 <h1>
-Hello, {{ student.name }} 👋
+    Hello, {{ student.name }} ◆
 </h1>
 
 <p>
-Roll Number: {{ student.roll_number }}
+    Roll Number:
+    {{ student.roll_number }}
 </p>
 
 </div>
@@ -1891,11 +2663,11 @@ Roll Number: {{ student.roll_number }}
 <div class="stat">
 
 <h3>
-📚 Total Lectures
+    Total Lectures
 </h3>
 
 <strong>
-{{ total }}
+    {{ total }}
 </strong>
 
 </div>
@@ -1904,11 +2676,11 @@ Roll Number: {{ student.roll_number }}
 <div class="stat">
 
 <h3>
-✅ Present
+    Present
 </h3>
 
 <strong>
-{{ present }}
+    {{ present }}
 </strong>
 
 </div>
@@ -1917,11 +2689,11 @@ Roll Number: {{ student.roll_number }}
 <div class="stat">
 
 <h3>
-❌ Absent
+    Absent
 </h3>
 
 <strong>
-{{ summary.absent }}
+    {{ absent }}
 </strong>
 
 </div>
@@ -1930,11 +2702,11 @@ Roll Number: {{ student.roll_number }}
 <div class="stat">
 
 <h3>
-📊 Attendance
+    Attendance
 </h3>
 
 <strong>
-{{ "%.1f"|format(percentage) }}%
+    {{ "%.1f"|format(percentage) }}%
 </strong>
 
 </div>
@@ -1949,7 +2721,7 @@ Roll Number: {{ student.roll_number }}
 <div class="card">
 
 <h2>
-📊 My Attendance
+    ◈ My Attendance
 </h2>
 
 
@@ -1957,7 +2729,8 @@ Roll Number: {{ student.roll_number }}
 
 <div
 class="progress-bar"
-style="width: {{ percentage }}%">
+style="width: {{ percentage }}%"
+>
 </div>
 
 </div>
@@ -1970,7 +2743,8 @@ style="width: {{ percentage }}%">
 
 <div class="error">
 
-⚠️ Your attendance is below 75%.
+    ⚠️ Your attendance is below
+    75%.
 
 </div>
 
@@ -1978,7 +2752,8 @@ style="width: {{ percentage }}%">
 
 <div class="success">
 
-✅ Your attendance is above 75%.
+    ◆ Your attendance is above
+    75%.
 
 </div>
 
@@ -1991,28 +2766,30 @@ style="width: {{ percentage }}%">
 <div class="card">
 
 <h2>
-📅 Attendance History
+    ◇ Attendance History
 </h2>
 
+
+<div class="table-container">
 
 <table>
 
 <tr>
 
 <th>
-Date
+    Date
 </th>
 
 <th>
-Subject
+    Subject
 </th>
 
 <th>
-Lecture
+    Lecture
 </th>
 
 <th>
-Status
+    Status
 </th>
 
 </tr>
@@ -2023,15 +2800,15 @@ Status
 <tr>
 
 <td>
-{{ a.lecture_date }}
+    {{ a.lecture_date }}
 </td>
 
 <td>
-{{ a.subject }}
+    {{ a.subject }}
 </td>
 
 <td>
-{{ a.lecture_number }}
+    {{ a.lecture_number }}
 </td>
 
 <td>
@@ -2040,21 +2817,19 @@ Status
 {% if a.status == "Present" %}
 
 <span class="badge present">
-Present
+    Present
 </span>
-
 
 {% elif a.status == "Absent" %}
 
 <span class="badge absent">
-Absent
+    Absent
 </span>
-
 
 {% else %}
 
 <span class="badge notmarked">
-Not Marked
+    Not Marked
 </span>
 
 {% endif %}
@@ -2068,6 +2843,7 @@ Not Marked
 
 </table>
 
+</div>
 
 </div>
 
@@ -2077,7 +2853,7 @@ Not Marked
 
 <div class="footer">
 
-TrackNova Student Panel
+    ◆ TrackNova Student Panel ◆
 
 </div>
 
@@ -2089,9 +2865,9 @@ TrackNova Student Panel
 """, style=STYLE)
 
 
-# =====================================================
+# =========================================================
 # LOGOUT
-# =====================================================
+# =========================================================
 
 @app.route("/logout")
 def logout():
@@ -2103,15 +2879,14 @@ def logout():
     )
 
 
-# =====================================================
-# RUN
-# =====================================================
+# =========================================================
+# START
+# =========================================================
 
 if __name__ == "__main__":
 
     app.run(
         host="0.0.0.0",
         port=5000,
-        debug=True
+        debug=False
     )
-```

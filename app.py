@@ -1,748 +1,560 @@
-from flask import (
-    Flask,
-    request,
-    redirect,
-    url_for,
-    render_template_string,
-    session,
-    Response
-)
-
+from flask import Flask, request, redirect, url_for, render_template_string, flash
+import database
 from datetime import date
-import sqlite3
-import csv
-import io
-from functools import wraps
-
-from database import (
-    get_connection,
-    get_students,
-    add_student,
-    delete_student,
-    add_lecture,
-    get_lectures,
-    get_lecture,
-    save_attendance,
-    get_lecture_attendance,
-    get_student_attendance,
-    get_today_attendance,
-    authenticate,
-    get_users,
-    create_user,
-    get_classes,
-    add_class,
-    get_subjects,
-    add_subject
-)
-
-
-# =========================================================
-# APP
-# =========================================================
 
 app = Flask(__name__)
+app.secret_key = "tracknova-secret-key"
 
-# Change this later to a random secret
-app.secret_key = "tracknova-super-secret-key-2026"
+# Make sure database tables exist
+database.setup_database()
 
 
 # =========================================================
-# DESIGN
+# MAIN DASHBOARD
+# =========================================================
+
+@app.route("/")
+def home():
+
+    students = database.get_students()
+    lectures = database.get_lectures()
+
+    today = str(date.today())
+
+    today_data = database.get_today_attendance(today)
+
+    present = today_data["present"] if today_data else 0
+    absent = today_data["absent"] if today_data else 0
+
+    total_students = len(students)
+
+    if total_students > 0:
+        attendance_percentage = round(
+            (present / (present + absent)) * 100, 1
+        ) if (present + absent) > 0 else 0
+    else:
+        attendance_percentage = 0
+
+    return render_template_string(
+        DASHBOARD_HTML,
+        students=students,
+        lectures=lectures,
+        present=present,
+        absent=absent,
+        total_students=total_students,
+        attendance_percentage=attendance_percentage
+    )
+
+
+# =========================================================
+# STUDENTS PAGE
+# =========================================================
+
+@app.route("/students")
+def students_page():
+
+    students = database.get_students()
+
+    return render_template_string(
+        STUDENTS_HTML,
+        students=students
+    )
+
+
+# =========================================================
+# ADD STUDENT
+# =========================================================
+
+@app.route("/add_student", methods=["POST"])
+def add_student():
+
+    roll = request.form.get("roll_number")
+    name = request.form.get("name")
+
+    if not roll or not name:
+        flash("Please enter roll number and student name.")
+        return redirect(url_for("students_page"))
+
+    try:
+        database.add_student(roll, name)
+        flash("Student added successfully!")
+
+    except Exception as e:
+        flash("Could not add student. Roll number may already exist.")
+
+    return redirect(url_for("students_page"))
+
+
+# =========================================================
+# DELETE STUDENT
+# =========================================================
+
+@app.route("/delete_student/<int:student_id>", methods=["POST"])
+def delete_student(student_id):
+
+    database.delete_student(student_id)
+
+    flash("Student deleted successfully.")
+
+    return redirect(url_for("students_page"))
+
+
+# =========================================================
+# LECTURES PAGE
+# =========================================================
+
+@app.route("/lectures")
+def lectures_page():
+
+    lectures = database.get_lectures()
+
+    return render_template_string(
+        LECTURES_HTML,
+        lectures=lectures
+    )
+
+
+# =========================================================
+# ADD LECTURE
+# =========================================================
+
+@app.route("/add_lecture", methods=["POST"])
+def add_lecture():
+
+    lecture_date = request.form.get("lecture_date")
+    lecture_number = request.form.get("lecture_number")
+    subject = request.form.get("subject")
+    start_time = request.form.get("start_time")
+    end_time = request.form.get("end_time")
+
+    if not all([
+        lecture_date,
+        lecture_number,
+        subject,
+        start_time,
+        end_time
+    ]):
+
+        flash("Please fill all lecture details.")
+
+        return redirect(url_for("lectures_page"))
+
+    try:
+
+        lecture_id = database.add_lecture(
+            lecture_date,
+            lecture_number,
+            subject,
+            start_time,
+            end_time
+        )
+
+        flash("Lecture created successfully!")
+
+        return redirect(
+            url_for(
+                "attendance_page",
+                lecture_id=lecture_id
+            )
+        )
+
+    except Exception as e:
+
+        flash("Could not create lecture.")
+
+        return redirect(url_for("lectures_page"))
+
+
+# =========================================================
+# ATTENDANCE PAGE
+# =========================================================
+
+@app.route("/attendance/<int:lecture_id>")
+def attendance_page(lecture_id):
+
+    lecture = database.get_lecture(lecture_id)
+
+    if not lecture:
+        flash("Lecture not found.")
+        return redirect(url_for("lectures_page"))
+
+    students = database.get_lecture_attendance(lecture_id)
+
+    return render_template_string(
+        ATTENDANCE_HTML,
+        lecture=lecture,
+        students=students
+    )
+
+
+# =========================================================
+# SAVE ATTENDANCE
+# =========================================================
+
+@app.route(
+    "/save_attendance/<int:lecture_id>",
+    methods=["POST"]
+)
+def save_attendance(lecture_id):
+
+    students = database.get_students()
+
+    for student in students:
+
+        status = request.form.get(
+            f"student_{student['id']}"
+        )
+
+        if status not in ["Present", "Absent"]:
+            status = "Absent"
+
+        database.save_attendance(
+            student["id"],
+            lecture_id,
+            status
+        )
+
+    flash("Attendance saved successfully!")
+
+    return redirect(
+        url_for(
+            "attendance_page",
+            lecture_id=lecture_id
+        )
+    )
+
+
+# =========================================================
+# REPORT
+# =========================================================
+
+@app.route("/reports")
+def reports():
+
+    students = database.get_student_attendance()
+
+    return render_template_string(
+        REPORT_HTML,
+        students=students
+    )
+
+
+# =========================================================
+# CSS
 # =========================================================
 
 CSS = """
-
 <style>
 
-*{
-    box-sizing:border-box;
+* {
+    box-sizing: border-box;
 }
 
-body{
-
-    margin:0;
-
-    font-family:
-    Arial,
-    Helvetica,
-    sans-serif;
-
-    color:#172033;
-
-    background:
-    linear-gradient(
-        135deg,
-        #eef2ff,
-        #f8fafc,
-        #eff6ff
-    );
-
-    min-height:100vh;
+body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f4f7fb;
+    color: #172033;
 }
 
-
-header{
-
-    color:white;
-
-    text-align:center;
-
-    padding:55px 20px;
-
-    background:
-    linear-gradient(
+.navbar {
+    background: linear-gradient(
         135deg,
         #111827,
-        #3730a3,
         #2563eb
     );
 
-    position:relative;
+    color: white;
+    padding: 18px 7%;
 
-    overflow:hidden;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
-
-header:before{
-
-    content:"";
-
-    position:absolute;
-
-    width:250px;
-
-    height:250px;
-
-    border-radius:50%;
-
-    background:#ffffff15;
-
-    top:-100px;
-
-    left:-50px;
-
-    animation:float 5s infinite ease-in-out;
+.logo {
+    font-size: 25px;
+    font-weight: bold;
 }
 
-
-header:after{
-
-    content:"";
-
-    position:absolute;
-
-    width:200px;
-
-    height:200px;
-
-    border-radius:50%;
-
-    background:#ffffff12;
-
-    bottom:-100px;
-
-    right:-30px;
-
-    animation:float 6s infinite ease-in-out;
+.nav-links {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
-
-.header-content{
-
-    position:relative;
-
-    z-index:2;
+.nav-links a {
+    color: white;
+    text-decoration: none;
+    padding: 9px 14px;
+    border-radius: 10px;
+    transition: 0.3s;
 }
 
-
-header h1{
-
-    margin:0;
-
-    font-size:45px;
-
-    letter-spacing:3px;
-
+.nav-links a:hover {
+    background: rgba(255,255,255,0.18);
+    transform: translateY(-2px);
 }
 
-
-header p{
-
-    margin:10px 0 0;
-
-    opacity:.9;
-
+.container {
+    width: 86%;
+    max-width: 1200px;
+    margin: 35px auto;
 }
 
-
-nav{
-
-    position:sticky;
-
-    top:0;
-
-    z-index:100;
-
-    background:#ffffffee;
-
-    backdrop-filter:blur(12px);
-
-    padding:10px;
-
-    text-align:center;
-
-    box-shadow:
-    0 4px 20px #00000012;
-}
-
-
-nav a{
-
-    display:inline-block;
-
-    text-decoration:none;
-
-    color:#334155;
-
-    padding:11px 15px;
-
-    margin:3px;
-
-    border-radius:12px;
-
-    font-weight:bold;
-
-    transition:.25s;
-}
-
-
-nav a:hover{
-
-    color:white;
-
-    background:
-    linear-gradient(
+.hero {
+    background: linear-gradient(
         135deg,
-        #6366f1,
-        #2563eb
+        #2563eb,
+        #7c3aed
     );
 
-    transform:
-    translateY(-2px);
+    color: white;
+    padding: 45px;
+    border-radius: 25px;
+    margin-bottom: 30px;
 
+    animation: fadeUp 0.7s ease;
 }
 
-
-main{
-
-    width:min(
-        1150px,
-        94%
-    );
-
-    margin:
-    30px auto;
-
+.hero h1 {
+    font-size: 42px;
+    margin: 0 0 10px;
 }
 
-
-.card{
-
-    background:white;
-
-    border:
-    1px solid #e2e8f0;
-
-    border-radius:22px;
-
-    padding:25px;
-
-    margin-bottom:20px;
-
-    box-shadow:
-    0 15px 40px #0f172a0c;
-
-    animation:
-    slideUp .5s ease;
-
+.hero p {
+    font-size: 18px;
+    opacity: 0.9;
 }
 
-
-.stats{
-
-    display:grid;
-
+.cards {
+    display: grid;
     grid-template-columns:
-    repeat(4,1fr);
+        repeat(auto-fit, minmax(220px, 1fr));
 
-    gap:18px;
-
-    margin-bottom:20px;
-
+    gap: 20px;
+    margin-bottom: 30px;
 }
 
-
-.stat{
-
-    background:white;
-
-    padding:23px;
-
-    text-align:center;
-
-    border-radius:20px;
-
-    border:
-    1px solid #e2e8f0;
+.card {
+    background: white;
+    padding: 25px;
+    border-radius: 18px;
 
     box-shadow:
-    0 12px 30px #0f172a0c;
+        0 8px 25px rgba(0,0,0,0.07);
 
-    transition:.3s;
+    transition: 0.3s;
 
+    animation: fadeUp 0.6s ease;
 }
 
-
-.stat:hover{
-
-    transform:
-    translateY(-6px);
+.card:hover {
+    transform: translateY(-7px);
 
     box-shadow:
-    0 20px 40px #6366f133;
-
+        0 15px 35px rgba(0,0,0,0.12);
 }
 
-
-.stat p{
-
-    color:#64748b;
-
-    font-weight:bold;
-
+.card h3 {
+    margin-top: 0;
+    color: #64748b;
 }
 
-
-.stat h2{
-
-    color:#2563eb;
-
-    font-size:32px;
-
-    margin:8px;
+.number {
+    font-size: 35px;
+    font-weight: bold;
+    color: #2563eb;
 }
 
-
-.grid{
-
-    display:grid;
-
-    grid-template-columns:
-    repeat(2,1fr);
-
-    gap:18px;
-
-}
-
-
-.quick{
-
-    display:block;
-
-    padding:25px;
-
-    border:
-    1px solid #e2e8f0;
-
-    border-radius:18px;
-
-    color:#172033;
-
-    text-decoration:none;
-
-    transition:.3s;
-
-    background:
-    linear-gradient(
-        135deg,
-        #ffffff,
-        #f8fafc
-    );
-
-}
-
-
-.quick:hover{
-
-    transform:
-    translateY(-5px);
-
-    border-color:#6366f1;
+.section {
+    background: white;
+    padding: 28px;
+    border-radius: 18px;
 
     box-shadow:
-    0 15px 35px #6366f126;
+        0 8px 25px rgba(0,0,0,0.06);
 
+    margin-bottom: 25px;
 }
 
+.section h2 {
+    margin-top: 0;
+}
 
 input,
-select{
+select {
+    width: 100%;
+    padding: 13px;
 
-    padding:12px 14px;
+    border: 1px solid #dbe2ea;
+    border-radius: 10px;
 
-    margin:5px;
+    margin: 6px 0 15px;
 
-    border:
-    2px solid #e2e8f0;
-
-    border-radius:12px;
-
-    font-size:14px;
-
-    background:white;
-
+    font-size: 15px;
 }
 
+button,
+.btn {
+    border: none;
+    background: #2563eb;
+    color: white;
 
-input:focus,
-select:focus{
+    padding: 12px 18px;
 
-    outline:none;
+    border-radius: 10px;
 
-    border-color:#6366f1;
+    cursor: pointer;
 
+    text-decoration: none;
+
+    display: inline-block;
+
+    transition: 0.3s;
 }
 
-
-.btn{
-
-    display:inline-block;
-
-    border:0;
-
-    cursor:pointer;
-
-    color:white;
-
-    background:
-    linear-gradient(
-        135deg,
-        #6366f1,
-        #2563eb
-    );
-
-    padding:12px 18px;
-
-    margin:5px;
-
-    border-radius:12px;
-
-    font-weight:bold;
-
-    text-decoration:none;
-
-    transition:.25s;
-
+button:hover,
+.btn:hover {
+    background: #1d4ed8;
+    transform: translateY(-2px);
 }
 
-
-.btn:hover{
-
-    transform:
-    translateY(-3px);
-
-    box-shadow:
-    0 10px 25px #2563eb44;
-
+.btn-green {
+    background: #16a34a;
 }
 
-
-.delete{
-
-    background:
-    linear-gradient(
-        135deg,
-        #ef4444,
-        #dc2626
-    );
-
+.btn-red {
+    background: #dc2626;
 }
 
-
-table{
-
-    width:100%;
-
-    border-collapse:
-    separate;
-
-    border-spacing:
-    0 7px;
-
+.btn-purple {
+    background: #7c3aed;
 }
 
-
-th{
-
-    background:#2563eb;
-
-    color:white;
-
-    padding:13px;
-
-    text-align:left;
-
+table {
+    width: 100%;
+    border-collapse: collapse;
 }
 
-
-td{
-
-    background:white;
-
-    padding:13px;
-
-    border-bottom:
-    1px solid #e2e8f0;
-
+th,
+td {
+    padding: 14px;
+    border-bottom: 1px solid #edf0f5;
+    text-align: left;
 }
 
-
-.badge{
-
-    display:inline-block;
-
-    padding:7px 12px;
-
-    border-radius:50px;
-
-    font-size:12px;
-
-    font-weight:bold;
-
+th {
+    background: #f8fafc;
 }
 
-
-.good{
-
-    background:#dcfce7;
-
-    color:#166534;
-
+tr:hover {
+    background: #f8fbff;
 }
 
+.alert {
+    padding: 14px 18px;
+    background: #e0f2fe;
+    border-left: 5px solid #0284c7;
 
-.bad{
+    border-radius: 10px;
 
-    background:#fee2e2;
-
-    color:#991b1b;
-
+    margin-bottom: 20px;
 }
 
-
-.msg{
-
-    background:#dcfce7;
-
-    color:#166534;
-
-    padding:14px;
-
-    border-radius:12px;
-
-    margin:12px 0;
-
+.progress {
+    height: 14px;
+    background: #e5e7eb;
+    border-radius: 20px;
+    overflow: hidden;
 }
 
-
-.warn{
-
-    background:#fef3c7;
-
-    color:#92400e;
-
-    padding:14px;
-
-    border-radius:12px;
-
-    margin:12px 0;
-
-}
-
-
-.progress{
-
-    height:14px;
-
-    background:#e2e8f0;
-
-    border-radius:30px;
-
-    overflow:hidden;
-
-}
-
-
-.bar{
-
-    height:100%;
-
-    background:
-    linear-gradient(
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(
         90deg,
-        #6366f1,
-        #06b6d4
+        #2563eb,
+        #7c3aed
     );
 
-    border-radius:30px;
-
-    transition:
-    width 1s ease;
-
+    transition: width 1s ease;
 }
 
-
-.login{
-
-    max-width:430px;
-
-    margin:
-    70px auto;
-
+.present {
+    color: #16a34a;
+    font-weight: bold;
 }
 
-
-.login h1{
-
-    text-align:center;
-
+.absent {
+    color: #dc2626;
+    font-weight: bold;
 }
 
-
-.search{
-
-    width:min(
-        400px,
-        90%
-    );
-
+.attendance-option {
+    display: inline-flex;
+    gap: 7px;
+    align-items: center;
+    margin-right: 10px;
 }
 
-
-.empty{
-
-    text-align:center;
-
-    padding:40px;
-
-    color:#64748b;
-
+.attendance-option input {
+    width: auto;
 }
 
-
-footer{
-
-    text-align:center;
-
-    padding:35px;
-
-    color:#64748b;
-
+.footer {
+    text-align: center;
+    padding: 35px;
+    color: #64748b;
 }
 
+@keyframes fadeUp {
 
-@keyframes float{
-
-    0%{
-        transform:translateY(0);
+    from {
+        opacity: 0;
+        transform: translateY(20px);
     }
 
-    50%{
-        transform:translateY(-15px);
-    }
-
-    100%{
-        transform:translateY(0);
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 
 }
 
+@media(max-width:700px) {
 
-@keyframes slideUp{
-
-    from{
-
-        opacity:0;
-
-        transform:
-        translateY(20px);
-
+    .navbar {
+        flex-direction: column;
+        gap: 15px;
     }
 
-    to{
-
-        opacity:1;
-
-        transform:
-        translateY(0);
-
+    .hero h1 {
+        font-size: 30px;
     }
 
-}
-
-
-@media(max-width:800px){
-
-    .stats{
-
-        grid-template-columns:
-        repeat(2,1fr);
-
+    .container {
+        width: 94%;
     }
 
-    .grid{
-
-        grid-template-columns:1fr;
-
-    }
-
-}
-
-
-@media(max-width:550px){
-
-    header h1{
-
-        font-size:32px;
-
-    }
-
-    .stats{
-
-        grid-template-columns:1fr;
-
-    }
-
-    table{
-
-        display:block;
-
-        overflow-x:auto;
-
+    table {
+        font-size: 13px;
     }
 
 }
 
 </style>
-
 """
 
 
 # =========================================================
-# BASE PAGE
+# DASHBOARD HTML
 # =========================================================
 
-BASE = """
+DASHBOARD_HTML = """
 
 <!DOCTYPE html>
 
@@ -750,127 +562,223 @@ BASE = """
 
 <head>
 
-<meta
-name="viewport"
-content="width=device-width, initial-scale=1"
->
+<title>TrackNova Dashboard</title>
 
-<title>
-TrackNova
-</title>
+<meta name="viewport"
+content="width=device-width, initial-scale=1">
 
-"""
-
-+ CSS +
-
-"""
+""" + CSS + """
 
 </head>
 
-
 <body>
 
+<nav class="navbar">
 
-<header>
-
-<div class="header-content">
-
-<h1>
-✦ TRACKNOVA
-</h1>
-
-<p>
-Smart College Attendance Management System
-</p>
-
+<div class="logo">
+🚀 TrackNova
 </div>
 
-</header>
+<div class="nav-links">
 
-
-<nav>
-
-<a href="/">
-🏠 Dashboard
-</a>
-
-
-{% if session.get("user_id") %}
-
+<a href="/">Dashboard</a>
 
 <a href="/students">
-👨‍🎓 Students
+Students
 </a>
-
-
-<a href="/attendance">
-📋 Attendance
-</a>
-
 
 <a href="/lectures">
-📚 History
+Lectures
 </a>
-
 
 <a href="/reports">
-📊 Reports
+Reports
 </a>
 
-
-{% if session.get("role") in ["admin","teacher"] %}
-
-<a href="/manage">
-⚙️ Manage
-</a>
-
-{% endif %}
-
-
-{% if session.get("role") == "student" %}
-
-<a href="/student">
-👤 My Attendance
-</a>
-
-{% endif %}
-
-
-<a href="/logout">
-🚪 Logout
-</a>
-
-
-{% else %}
-
-
-<a href="/login">
-🔐 Login
-</a>
-
-
-{% endif %}
-
+</div>
 
 </nav>
 
 
-<main>
-
-{{ content|safe }}
-
-</main>
+<div class="container">
 
 
-<footer>
+<div class="hero">
 
-TRACKNOVA
+<h1>
+TrackNova Attendance
+</h1>
 
+<p>
+Smart • Simple • Modern Attendance Management
+</p>
+
+<a class="btn"
+href="/lectures">
++ Create Lecture
+</a>
+
+<a class="btn btn-purple"
+href="/students">
+Manage Students
+</a>
+
+</div>
+
+
+<div class="cards">
+
+
+<div class="card">
+
+<h3>Total Students</h3>
+
+<div class="number">
+{{ total_students }}
+</div>
+
+</div>
+
+
+<div class="card">
+
+<h3>Present Today</h3>
+
+<div class="number">
+{{ present }}
+</div>
+
+</div>
+
+
+<div class="card">
+
+<h3>Absent Today</h3>
+
+<div class="number">
+{{ absent }}
+</div>
+
+</div>
+
+
+<div class="card">
+
+<h3>Attendance Rate</h3>
+
+<div class="number">
+{{ attendance_percentage }}%
+</div>
+
+<div class="progress">
+
+<div class="progress-bar"
+style="width: {{ attendance_percentage }}%">
+</div>
+
+</div>
+
+</div>
+
+
+</div>
+
+
+<div class="section">
+
+<h2>📊 Today's Overview</h2>
+
+<p>
+Track attendance and manage your lectures
+from one simple dashboard.
+</p>
+
+</div>
+
+
+<div class="section">
+
+<h2>📚 Recent Lectures</h2>
+
+{% if lectures %}
+
+<table>
+
+<tr>
+
+<th>Date</th>
+
+<th>Lecture</th>
+
+<th>Subject</th>
+
+<th>Time</th>
+
+<th>Action</th>
+
+</tr>
+
+
+{% for lecture in lectures[:5] %}
+
+<tr>
+
+<td>
+{{ lecture["lecture_date"] }}
+</td>
+
+<td>
+Lecture {{ lecture["lecture_number"] }}
+</td>
+
+<td>
+{{ lecture["subject"] }}
+</td>
+
+<td>
+{{ lecture["start_time"] }}
+-
+{{ lecture["end_time"] }}
+</td>
+
+<td>
+
+<a class="btn"
+href="/attendance/{{ lecture['id'] }}">
+
+Take Attendance
+
+</a>
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+{% else %}
+
+<p>
+No lectures created yet.
+</p>
+
+{% endif %}
+
+</div>
+
+
+</div>
+
+
+<div class="footer">
+
+TrackNova © 2026
 <br>
+Smart Attendance Management System
 
-Smart Attendance • Better Education • Digital Campus
-
-</footer>
+</div>
 
 
 </body>
@@ -881,1084 +789,172 @@ Smart Attendance • Better Education • Digital Campus
 
 
 # =========================================================
-# PAGE HELPER
+# STUDENTS HTML
 # =========================================================
 
-def page(template, **data):
+STUDENTS_HTML = """
 
-    return render_template_string(
+<!DOCTYPE html>
 
-        BASE,
+<html>
 
-        content=
-        render_template_string(
-            template,
-            **data
-        )
+<head>
 
-    )
+<title>TrackNova Students</title>
 
+<meta name="viewport"
+content="width=device-width, initial-scale=1">
 
-# =========================================================
-# LOGIN REQUIRED
-# =========================================================
+""" + CSS + """
 
-def login_required(function):
+</head>
 
-    @wraps(function)
+<body>
 
-    def wrapper(
-        *args,
-        **kwargs
-    ):
+<nav class="navbar">
 
-        if not session.get(
-            "user_id"
-        ):
-
-            return redirect(
-                url_for(
-                    "login"
-                )
-            )
-
-        return function(
-            *args,
-            **kwargs
-        )
-
-    return wrapper
-
-
-# =========================================================
-# STAFF ONLY
-# =========================================================
-
-def staff_required(function):
-
-    @wraps(function)
-
-    def wrapper(
-        *args,
-        **kwargs
-    ):
-
-        if not session.get(
-            "user_id"
-        ):
-
-            return redirect(
-                url_for(
-                    "login"
-                )
-            )
-
-
-        if session.get(
-            "role"
-        ) not in [
-            "admin",
-            "teacher"
-        ]:
-
-            return "Access denied.", 403
-
-
-        return function(
-            *args,
-            **kwargs
-        )
-
-    return wrapper
-
-
-# =========================================================
-# LOGIN
-# =========================================================
-
-@app.route(
-    "/login",
-    methods=[
-        "GET",
-        "POST"
-    ]
-)
-
-def login():
-
-    error = ""
-
-
-    if request.method == "POST":
-
-        username = request.form.get(
-            "username",
-            ""
-        ).strip()
-
-
-        password = request.form.get(
-            "password",
-            ""
-        )
-
-
-        user = authenticate(
-            username,
-            password
-        )
-
-
-        if user:
-
-            session["user_id"] = user["id"]
-
-            session["username"] = user["username"]
-
-            session["full_name"] = user["full_name"]
-
-            session["role"] = user["role"]
-
-
-            if user["role"] == "student":
-
-                return redirect(
-                    url_for(
-                        "student_portal"
-                    )
-                )
-
-
-            return redirect(
-                url_for(
-                    "home"
-                )
-            )
-
-
-        error = (
-            "Invalid username or password."
-        )
-
-
-    template = """
-
-<div class="card login">
-
-<h1>
-🔐 TrackNova Login
-</h1>
-
-
-<p style="
-text-align:center;
-color:#64748b;
-">
-
-Secure College Attendance Portal
-
-</p>
-
-
-{% if error %}
-
-<div class="warn">
-
-{{ error }}
-
+<div class="logo">
+🚀 TrackNova
 </div>
 
-{% endif %}
+<div class="nav-links">
 
+<a href="/">Dashboard</a>
 
-<form method="post">
-
-<input
-style="width:95%"
-name="username"
-placeholder="👤 Username"
-required
->
-
-
-<input
-style="width:95%"
-type="password"
-name="password"
-placeholder="🔒 Password"
-required
->
-
-
-<button
-class="btn"
-style="width:95%"
->
-
-Login
-
-</button>
-
-
-</form>
-
-
-<div class="warn">
-
-<b>Default Admin</b>
-
-<br>
-
-Username:
-<b>admin</b>
-
-<br>
-
-Password:
-<b>admin123</b>
-
-</div>
-
-
-</div>
-
-"""
-
-
-    return page(
-        template,
-        error=error
-    )
-
-
-# =========================================================
-# LOGOUT
-# =========================================================
-
-@app.route(
-    "/logout"
-)
-
-def logout():
-
-    session.clear()
-
-    return redirect(
-        url_for(
-            "login"
-        )
-    )
-
-
-# =========================================================
-# DASHBOARD
-# =========================================================
-
-@app.route("/")
-@login_required
-
-def home():
-
-    today = date.today().isoformat()
-
-
-    with get_connection() as db:
-
-        total = db.execute(
-            "SELECT COUNT(*) FROM students"
-        ).fetchone()[0]
-
-
-    today_data = get_today_attendance(
-        today
-    )
-
-
-    present = (
-        today_data["present"]
-        or 0
-    )
-
-
-    absent = (
-        today_data["absent"]
-        or 0
-    )
-
-
-    marked = present + absent
-
-
-    percentage = (
-        round(
-            present * 100 / marked,
-            1
-        )
-        if marked
-        else 0
-    )
-
-
-    template = """
-
-<div class="card">
-
-<h2>
-
-Welcome,
-{{ session["full_name"] }}
-👋
-
-</h2>
-
-
-<p>
-
-Role:
-
-<b>
-{{ session["role"]|upper }}
-</b>
-
-&nbsp; • &nbsp;
-
-{{ today }}
-
-</p>
-
-</div>
-
-
-<div class="stats">
-
-
-<div class="stat">
-
-<p>
-👨‍🎓 Total Students
-</p>
-
-<h2>
-{{ total }}
-</h2>
-
-</div>
-
-
-<div class="stat">
-
-<p>
-🟢 Present Today
-</p>
-
-<h2>
-{{ present }}
-</h2>
-
-</div>
-
-
-<div class="stat">
-
-<p>
-🔴 Absent Today
-</p>
-
-<h2>
-{{ absent }}
-</h2>
-
-</div>
-
-
-<div class="stat">
-
-<p>
-📈 Attendance
-</p>
-
-<h2>
-{{ percentage }}%
-</h2>
-
-</div>
-
-
-</div>
-
-
-<div class="card">
-
-<h2>
-⚡ Quick Actions
-</h2>
-
-
-<div class="grid">
-
-
-<a
-class="quick"
-href="/attendance"
->
-
-📋
-
-<b>
-Take Attendance
-</b>
-
-<br>
-
-<small>
-Mark today's attendance
-</small>
-
-</a>
-
-
-<a
-class="quick"
-href="/students"
->
-
-👨‍🎓
-
-<b>
+<a href="/students">
 Students
-</b>
-
-<br>
-
-<small>
-Manage students
-</small>
-
 </a>
 
+<a href="/lectures">
+Lectures
+</a>
 
-<a
-class="quick"
-href="/reports"
->
-
-📊
-
-<b>
+<a href="/reports">
 Reports
-</b>
-
-<br>
-
-<small>
-View attendance analytics
-</small>
-
 </a>
 
-
-<a
-class="quick"
-href="/lectures"
->
-
-📚
-
-<b>
-Lecture History
-</b>
-
-<br>
-
-<small>
-Previous attendance
-</small>
-
-</a>
-
-
 </div>
 
-</div>
+</nav>
 
 
-<div class="card">
+<div class="container">
 
-<h2>
-🎯 TrackNova Features
-</h2>
 
-<div class="grid">
+{% with messages = get_flashed_messages() %}
 
-<div class="quick">
-🔐 Secure Login
-</div>
+{% for message in messages %}
 
-<div class="quick">
-📱 Mobile Friendly
-</div>
-
-<div class="quick">
-📊 Smart Reports
-</div>
-
-<div class="quick">
-⚡ Fast Attendance
-</div>
-
-</div>
-
-</div>
-
-"""
-
-
-    return page(
-        template,
-        total=total,
-        present=present,
-        absent=absent,
-        percentage=percentage,
-        today=today
-    )
-
-
-# =========================================================
-# STUDENT PORTAL
-# =========================================================
-
-@app.route(
-    "/student"
-)
-
-@login_required
-
-def student_portal():
-
-    if session.get(
-        "role"
-    ) != "student":
-
-        return redirect(
-            url_for(
-                "home"
-            )
-        )
-
-
-    with get_connection() as db:
-
-        student = db.execute("""
-
-SELECT *
-
-FROM students
-
-WHERE id = (
-
-SELECT student_id
-
-FROM users
-
-WHERE id = ?
-
-)
-
-""", (
-            session["user_id"],
-        )).fetchone()
-
-
-    if not student:
-
-        return "Student profile not linked."
-
-
-    with get_connection() as db:
-
-        result = db.execute("""
-
-SELECT
-
-COUNT(la.id) AS total,
-
-COALESCE(
-
-SUM(
-
-CASE
-
-WHEN la.status = 'Present'
-
-THEN 1
-
-ELSE 0
-
-END
-
-),
-
-0
-
-) AS present
-
-FROM lecture_attendance la
-
-WHERE la.student_id = ?
-
-""", (
-            student["id"],
-        )).fetchone()
-
-
-    total = (
-        result["total"]
-        or 0
-    )
-
-
-    present = (
-        result["present"]
-        or 0
-    )
-
-
-    absent = total - present
-
-
-    percentage = (
-
-        round(
-            present * 100 / total,
-            1
-        )
-
-        if total
-
-        else 0
-
-    )
-
-
-    template = """
-
-<div class="card">
-
-<h1>
-👨‍🎓 My Attendance
-</h1>
-
-
-<p>
-
-<b>
-{{ student["name"] }}
-</b>
-
-<br>
-
-Roll Number:
-{{ student["roll_number"] }}
-
-</p>
-
-
-</div>
-
-
-<div class="stats">
-
-
-<div class="stat">
-
-<p>
-📚 Total
-</p>
-
-<h2>
-{{ total }}
-</h2>
-
-</div>
-
-
-<div class="stat">
-
-<p>
-🟢 Present
-</p>
-
-<h2>
-{{ present }}
-</h2>
-
-</div>
-
-
-<div class="stat">
-
-<p>
-🔴 Absent
-</p>
-
-<h2>
-{{ absent }}
-</h2>
-
-</div>
-
-
-<div class="stat">
-
-<p>
-📈 Percentage
-</p>
-
-<h2>
-{{ percentage }}%
-</h2>
-
-</div>
-
-
-</div>
-
-
-<div class="card">
-
-<h2>
-Attendance Progress
-</h2>
-
-
-<div class="progress">
-
-<div
-class="bar"
-style="width:{{ percentage }}%"
->
-
-</div>
-
-</div>
-
-
-{% if percentage < 75 %}
-
-<div class="warn">
-
-⚠️ Your attendance is below 75%.
-
-Please attend more lectures.
-
-</div>
-
-
-{% else %}
-
-<div class="msg">
-
-✅ Excellent!
-
-Your attendance is above 75%.
-
-</div>
-
-{% endif %}
-
-
-</div>
-
-"""
-
-
-    return page(
-        template,
-        student=student,
-        total=total,
-        present=present,
-        absent=absent,
-        percentage=percentage
-    )
-
-
-# =========================================================
-# STUDENTS
-# =========================================================
-
-@app.route(
-    "/students",
-    methods=[
-        "GET",
-        "POST"
-    ]
-)
-
-@staff_required
-
-def students_page():
-
-    message = ""
-
-
-    if request.method == "POST":
-
-        action = request.form.get(
-            "action"
-        )
-
-
-        if action == "add":
-
-            try:
-
-                add_student(
-
-                    request.form["roll"],
-
-                    request.form["name"]
-
-                )
-
-
-                message = (
-                    "Student added successfully! 🎉"
-                )
-
-
-            except sqlite3.IntegrityError:
-
-                message = (
-                    "This roll number already exists."
-                )
-
-
-        elif action == "delete":
-
-            delete_student(
-                request.form["student_id"]
-            )
-
-
-            message = (
-                "Student deleted."
-            )
-
-
-    students = get_students()
-
-
-    template = """
-
-<div class="card">
-
-<h1>
-👨‍🎓 Student Management
-</h1>
-
-
-<p style="color:#64748b">
-
-Manage your college students.
-
-</p>
-
-
-{% if message %}
-
-<div class="msg">
+<div class="alert">
 {{ message }}
 </div>
 
-{% endif %}
+{% endfor %}
+
+{% endwith %}
 
 
-<form method="post">
+<div class="section">
 
-<input
-type="hidden"
-name="action"
-value="add"
->
+<h2>👨‍🎓 Add Student</h2>
 
+<form method="POST"
+action="/add_student">
+
+<label>
+Roll Number
+</label>
 
 <input
 type="number"
-name="roll"
-placeholder="🔢 Roll Number"
-required
->
+name="roll_number"
+placeholder="Example: 101"
+required>
 
+
+<label>
+Student Name
+</label>
 
 <input
+type="text"
 name="name"
-placeholder="👤 Student Name"
-required
->
+placeholder="Enter student name"
+required>
 
 
-<button class="btn">
-
+<button type="submit">
 + Add Student
-
 </button>
 
-
 </form>
-
-
-<input
-
-class="search"
-
-id="studentSearch"
-
-placeholder="🔍 Search student..."
-
-onkeyup="searchStudents()"
-
->
-
 
 </div>
 
 
-<div class="card">
+<div class="section">
 
 <h2>
-📋 Student List
+👥 Student List
 </h2>
 
 
 {% if students %}
 
-
-<table id="studentTable">
-
+<table>
 
 <tr>
 
-<th>
-Roll Number
-</th>
+<th>Roll Number</th>
 
-<th>
-Student
-</th>
+<th>Name</th>
 
-<th>
-Class
-</th>
-
-<th>
-Action
-</th>
+<th>Action</th>
 
 </tr>
 
 
 {% for student in students %}
 
-
 <tr>
 
-
 <td>
-
-<b>
-#{{ student["roll_number"] }}
-</b>
-
+{{ student["roll_number"] }}
 </td>
 
-
 <td>
-
-👤
-
 {{ student["name"] }}
-
 </td>
-
 
 <td>
 
-{{ student["class_name"] or "Not assigned" }}
-
-</td>
-
-
-<td>
-
-
-<form
-method="post"
-style="display:inline"
-onsubmit="
-return confirm(
-'Delete this student?'
-)
-"
->
-
-
-<input
-type="hidden"
-name="action"
-value="delete"
->
-
-
-<input
-type="hidden"
-name="student_id"
-value="{{ student['id'] }}"
->
-
+<form method="POST"
+action="/delete_student/{{ student['id'] }}">
 
 <button
-class="btn delete"
->
+class="btn-red"
+type="submit">
 
-🗑 Delete
+Delete
 
 </button>
 
-
 </form>
-
 
 </td>
 
-
 </tr>
 
-
 {% endfor %}
-
 
 </table>
 
 
 {% else %}
 
-
-<div class="empty">
-
-<h2>
-👨‍🎓
-</h2>
-
-<h3>
-No students yet
-</h3>
-
 <p>
-Add your first student above.
+No students added yet.
 </p>
-
-</div>
-
 
 {% endif %}
 
@@ -1966,855 +962,368 @@ Add your first student above.
 </div>
 
 
-<script>
-
-function searchStudents(){
-
-let value =
-document
-.getElementById(
-"studentSearch"
-)
-.value
-.toLowerCase();
+</div>
 
 
-let rows =
-document
-.querySelectorAll(
-"#studentTable tr"
-);
+<div class="footer">
+TrackNova © 2026
+</div>
 
 
-rows.forEach(
-function(row,index){
+</body>
 
-if(index === 0)
-return;
-
-
-row.style.display =
-
-row.innerText
-.toLowerCase()
-.includes(value)
-
-? ""
-
-: "none";
-
-});
-
-}
-
-</script>
+</html>
 
 """
 
 
-    return page(
-        template,
-        students=students,
-        message=message
-    )
-
-
 # =========================================================
-# ATTENDANCE
+# LECTURES HTML
 # =========================================================
 
-@app.route(
-    "/attendance",
-    methods=[
-        "GET",
-        "POST"
-    ]
-)
+LECTURES_HTML = """
 
-@staff_required
+<!DOCTYPE html>
 
-def attendance_page():
+<html>
 
-    students = get_students()
+<head>
 
+<title>TrackNova Lectures</title>
 
-    if request.method == "POST":
+<meta name="viewport"
+content="width=device-width, initial-scale=1">
 
-        lecture_id = add_lecture(
+""" + CSS + """
 
-            request.form[
-                "lecture_date"
-            ],
+</head>
 
-            request.form[
-                "lecture_number"
-            ],
+<body>
 
-            request.form[
-                "subject"
-            ],
+<nav class="navbar">
 
-            request.form[
-                "start_time"
-            ],
+<div class="logo">
+🚀 TrackNova
+</div>
 
-            request.form[
-                "end_time"
-            ],
+<div class="nav-links">
 
-            session[
-                "user_id"
-            ]
+<a href="/">Dashboard</a>
 
-        )
+<a href="/students">
+Students
+</a>
 
+<a href="/lectures">
+Lectures
+</a>
 
-        for student in students:
-
-            status = request.form.get(
-
-                "student_"
-                + str(
-                    student["id"]
-                )
-
-            )
-
-
-            if status in (
-                "Present",
-                "Absent"
-            ):
-
-                save_attendance(
-
-                    student["id"],
-
-                    lecture_id,
-
-                    status
-
-                )
-
-
-        return redirect(
-
-            url_for(
-
-                "lecture_view",
-
-                lecture_id=lecture_id
-
-            )
-
-        )
-
-
-    template = """
-
-<div class="card">
-
-<h1>
-📋 Take Attendance
-</h1>
-
-
-<p>
-Mark attendance quickly.
-</p>
-
+<a href="/reports">
+Reports
+</a>
 
 </div>
 
-
-{% if students %}
-
-
-<form method="post">
+</nav>
 
 
-<div class="card">
+<div class="container">
 
+
+{% with messages = get_flashed_messages() %}
+
+{% for message in messages %}
+
+<div class="alert">
+{{ message }}
+</div>
+
+{% endfor %}
+
+{% endwith %}
+
+
+<div class="section">
 
 <h2>
-📚 Lecture Details
+📚 Create New Lecture
 </h2>
 
+
+<form method="POST"
+action="/add_lecture">
+
+
+<label>
+Date
+</label>
 
 <input
 type="date"
 name="lecture_date"
-value="{{ today }}"
-required
->
+required>
 
+
+<label>
+Lecture Number
+</label>
 
 <input
 type="number"
 name="lecture_number"
-placeholder="📖 Lecture Number"
 min="1"
-required
->
+placeholder="Example: 1"
+required>
 
+
+<label>
+Subject
+</label>
 
 <input
 type="text"
 name="subject"
-placeholder="📚 Subject"
-required
->
+placeholder="Example: Data Structures"
+required>
 
+
+<label>
+Start Time
+</label>
 
 <input
 type="time"
 name="start_time"
-required
->
+required>
 
+
+<label>
+End Time
+</label>
 
 <input
 type="time"
 name="end_time"
-required
->
+required>
 
 
-</div>
+<button type="submit">
 
-
-<div class="card">
-
-
-<div style="
-display:flex;
-justify-content:space-between;
-align-items:center;
-flex-wrap:wrap;
-">
-
-
-<h2>
-👨‍🎓 Students
-</h2>
-
-
-<div>
-
-
-<button
-type="button"
-class="btn"
-onclick="markAll('Present')"
->
-
-🟢 All Present
+Create Lecture & Take Attendance
 
 </button>
-
-
-<button
-type="button"
-class="btn delete"
-onclick="markAll('Absent')"
->
-
-🔴 All Absent
-
-</button>
-
-
-</div>
-
-
-</div>
-
-
-<table>
-
-
-<tr>
-
-<th>
-Roll
-</th>
-
-<th>
-Name
-</th>
-
-<th>
-Status
-</th>
-
-</tr>
-
-
-{% for student in students %}
-
-
-<tr>
-
-
-<td>
-
-#{{ student["roll_number"] }}
-
-</td>
-
-
-<td>
-
-👤
-
-{{ student["name"] }}
-
-</td>
-
-
-<td>
-
-
-<label>
-
-<input
-
-type="radio"
-
-name="student_{{ student['id'] }}"
-
-value="Present"
-
-required
-
->
-
-🟢 Present
-
-</label>
-
-
-<label style="margin-left:15px">
-
-
-<input
-
-type="radio"
-
-name="student_{{ student['id'] }}"
-
-value="Absent"
-
->
-
-🔴 Absent
-
-</label>
-
-
-</td>
-
-
-</tr>
-
-
-{% endfor %}
-
-
-</table>
-
-
-<br>
-
-
-<button
-class="btn"
-style="
-font-size:17px;
-padding:15px 30px;
-"
->
-
-💾 Save Attendance
-
-</button>
-
-
-</div>
 
 
 </form>
 
+</div>
 
-{% else %}
 
-
-<div class="card">
-
-<div class="empty">
+<div class="section">
 
 <h2>
-👨‍🎓
+📖 Previous Lectures
 </h2>
-
-<h3>
-No Students
-</h3>
-
-<p>
-Add students before taking attendance.
-</p>
-
-
-<a
-class="btn"
-href="/students"
->
-
-+ Add Students
-
-</a>
-
-
-</div>
-
-</div>
-
-
-{% endif %}
-
-
-<script>
-
-function markAll(status){
-
-let buttons =
-document.querySelectorAll(
-'input[type="radio"]'
-);
-
-
-buttons.forEach(
-function(button){
-
-if(
-button.value === status
-){
-
-button.checked =
-true;
-
-}
-
-});
-
-}
-
-</script>
-
-"""
-
-
-    return page(
-
-        template,
-
-        students=students,
-
-        today=date.today().isoformat()
-
-    )
-
-
-# =========================================================
-# LECTURE VIEW
-# =========================================================
-
-@app.route(
-    "/lecture/<int:lecture_id>"
-)
-
-@staff_required
-
-def lecture_view(
-    lecture_id
-):
-
-    lecture = get_lecture(
-        lecture_id
-    )
-
-
-    attendance =
-        get_lecture_attendance(
-            lecture_id
-        )
-
-
-    if not lecture:
-
-        return (
-            "Lecture not found."
-        )
-
-
-    template = """
-
-<div class="card">
-
-<h1>
-📚 {{ lecture["subject"] }}
-</h1>
-
-
-<p>
-
-📅
-{{ lecture["lecture_date"] }}
-
-&nbsp; • &nbsp;
-
-Lecture
-{{ lecture["lecture_number"] }}
-
-&nbsp; • &nbsp;
-
-⏰
-{{ lecture["start_time"] }}
-
--
-
-{{ lecture["end_time"] }}
-
-</p>
-
-
-</div>
-
-
-<div class="card">
-
-
-<table>
-
-
-<tr>
-
-<th>
-Roll
-</th>
-
-<th>
-Student
-</th>
-
-<th>
-Status
-</th>
-
-</tr>
-
-
-{% for student in attendance %}
-
-
-<tr>
-
-
-<td>
-
-#{{ student["roll_number"] }}
-
-</td>
-
-
-<td>
-
-{{ student["name"] }}
-
-</td>
-
-
-<td>
-
-
-{% if student["status"] == "Present" %}
-
-
-<span class="badge good">
-
-🟢 Present
-
-</span>
-
-
-{% elif student["status"] == "Absent" %}
-
-
-<span class="badge bad">
-
-🔴 Absent
-
-</span>
-
-
-{% else %}
-
-
-Not marked
-
-
-{% endif %}
-
-
-</td>
-
-
-</tr>
-
-
-{% endfor %}
-
-
-</table>
-
-
-</div>
-
-"""
-
-
-    return page(
-
-        template,
-
-        lecture=lecture,
-
-        attendance=attendance
-
-    )
-
-
-# =========================================================
-# LECTURE HISTORY
-# =========================================================
-
-@app.route(
-    "/lectures"
-)
-
-@staff_required
-
-def lectures_page():
-
-    lectures =
-        get_lectures()
-
-
-    template = """
-
-<div class="card">
-
-<h1>
-📚 Lecture History
-</h1>
-
-
-<p>
-All previous attendance sessions.
-</p>
 
 
 {% if lectures %}
 
-
 <table>
-
 
 <tr>
 
-<th>
-Date
-</th>
+<th>Date</th>
 
-<th>
-Subject
-</th>
+<th>No.</th>
 
-<th>
-Teacher
-</th>
+<th>Subject</th>
 
-<th>
-View
-</th>
+<th>Time</th>
+
+<th>Action</th>
 
 </tr>
 
 
 {% for lecture in lectures %}
 
-
 <tr>
 
-
 <td>
-
 {{ lecture["lecture_date"] }}
-
 </td>
 
+<td>
+{{ lecture["lecture_number"] }}
+</td>
 
 <td>
-
 {{ lecture["subject"] }}
-
 </td>
 
+<td>
+{{ lecture["start_time"] }}
+-
+{{ lecture["end_time"] }}
+</td>
 
 <td>
 
-{{ lecture["teacher_name"] or "-" }}
+<a class="btn"
+href="/attendance/{{ lecture['id'] }}">
 
-</td>
-
-
-<td>
-
-
-<a
-
-class="btn"
-
-href="/lecture/{{ lecture['id'] }}"
-
->
-
-View
+Attendance
 
 </a>
 
-
 </td>
-
 
 </tr>
 
-
 {% endfor %}
-
 
 </table>
 
 
 {% else %}
 
-
-<div class="empty">
-
-<h2>
-📚
-</h2>
-
 <p>
-No lectures recorded yet.
+No lectures available.
 </p>
-
-</div>
-
 
 {% endif %}
 
 
 </div>
 
-"""
-
-
-    return page(
-
-        template,
-
-        lectures=lectures
-
-    )
-
-
-# =========================================================
-# REPORTS
-# =========================================================
-
-@app.route(
-    "/reports"
-)
-
-@login_required
-
-def reports_page():
-
-    reports =
-        get_student_attendance()
-
-
-    template = """
-
-<div class="card">
-
-<h1>
-📊 Attendance Reports
-</h1>
-
-
-<p>
-Complete student attendance analytics.
-</p>
-
-
-<a
-class="btn"
-href="/export.csv"
->
-
-📥 Download CSV
-
-</a>
-
-
-<button
-class="btn"
-onclick="window.print()"
->
-
-🖨 Print / Save PDF
-
-</button>
-
 
 </div>
 
 
-<div class="card">
+<div class="footer">
+TrackNova © 2026
+</div>
+
+
+</body>
+
+</html>
+
+"""
+
+
+# =========================================================
+# ATTENDANCE HTML
+# =========================================================
+
+ATTENDANCE_HTML = """
+
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<title>Take Attendance - TrackNova</title>
+
+<meta name="viewport"
+content="width=device-width, initial-scale=1">
+
+""" + CSS + """
+
+</head>
+
+<body>
+
+<nav class="navbar">
+
+<div class="logo">
+🚀 TrackNova
+</div>
+
+<div class="nav-links">
+
+<a href="/">Dashboard</a>
+
+<a href="/students">
+Students
+</a>
+
+<a href="/lectures">
+Lectures
+</a>
+
+<a href="/reports">
+Reports
+</a>
+
+</div>
+
+</nav>
+
+
+<div class="container">
+
+
+{% with messages = get_flashed_messages() %}
+
+{% for message in messages %}
+
+<div class="alert">
+{{ message }}
+</div>
+
+{% endfor %}
+
+{% endwith %}
+
+
+<div class="hero">
+
+<h1>
+Take Attendance
+</h1>
+
+<p>
+
+{{ lecture["subject"] }}
+
+<br>
+
+{{ lecture["lecture_date"] }}
+
+|
+
+Lecture {{ lecture["lecture_number"] }}
+
+|
+
+{{ lecture["start_time"] }}
+-
+{{ lecture["end_time"] }}
+
+</p>
+
+</div>
+
+
+<div class="section">
+
+
+<form method="POST"
+action="/save_attendance/{{ lecture['id'] }}">
 
 
 <table>
 
-
 <tr>
 
 <th>
-Roll
+Roll No.
 </th>
 
 <th>
-Student
-</th>
-
-<th>
-Present
-</th>
-
-<th>
-Total
+Student Name
 </th>
 
 <th>
@@ -2824,692 +1333,244 @@ Attendance
 </tr>
 
 
-{% for student in reports %}
-
-
-{% set total =
-student["total"] or 0
-%}
-
-
-{% set present =
-student["present"] or 0
-%}
-
+{% for student in students %}
 
 <tr>
 
-
 <td>
-
-#{{ student["roll_number"] }}
-
+{{ student["roll_number"] }}
 </td>
 
-
 <td>
-
 {{ student["name"] }}
-
 </td>
-
-
-<td>
-
-{{ present }}
-
-</td>
-
-
-<td>
-
-{{ total }}
-
-</td>
-
 
 <td>
 
 
-{% if total %}
+<label class="attendance-option">
 
-
-{% set percentage =
-(present * 100 / total)
-|round(1)
-%}
-
-
-<div class="progress">
-
-
-<div
-
-class="bar"
-
-style="
-width:{{ percentage }}%;
-"
-
+<input
+type="radio"
+name="student_{{ student['id'] }}"
+value="Present"
+{% if student["status"] == "Present" %}
+checked
+{% endif %}
 >
 
-</div>
+<span class="present">
+Present
+</span>
+
+</label>
 
 
-</div>
+<label class="attendance-option">
+
+<input
+type="radio"
+name="student_{{ student['id'] }}"
+value="Absent"
+{% if student["status"] == "Absent" %}
+checked
+{% endif %}
+>
+
+<span class="absent">
+Absent
+</span>
+
+</label>
+
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+
+</table>
 
 
 <br>
 
 
-{% if percentage < 75 %}
+<button type="submit">
+
+💾 Save Attendance
+
+</button>
 
 
-<span class="badge bad">
-
-{{ percentage }}%
-
-LOW
-
-</span>
-
-
-{% else %}
-
-
-<span class="badge good">
-
-{{ percentage }}%
-
-GOOD
-
-</span>
-
-
-{% endif %}
-
-
-{% else %}
-
-
-No attendance
-
-
-{% endif %}
-
-
-</td>
-
-
-</tr>
-
-
-{% endfor %}
-
-
-</table>
+</form>
 
 
 </div>
+
+
+</div>
+
+
+<div class="footer">
+TrackNova © 2026
+</div>
+
+
+</body>
+
+</html>
 
 """
 
 
-    return page(
-
-        template,
-
-        reports=reports
-
-    )
-
-
 # =========================================================
-# CSV EXPORT
+# REPORT HTML
 # =========================================================
 
-@app.route(
-    "/export.csv"
-)
+REPORT_HTML = """
 
-@login_required
+<!DOCTYPE html>
 
-def export_csv():
+<html>
 
-    reports =
-        get_student_attendance()
+<head>
 
+<title>TrackNova Reports</title>
 
-    output =
-        io.StringIO()
+<meta name="viewport"
+content="width=device-width, initial-scale=1">
 
+""" + CSS + """
 
-    writer =
-        csv.writer(
-            output
-        )
+</head>
 
+<body>
 
-    writer.writerow([
+<nav class="navbar">
 
-        "Roll Number",
+<div class="logo">
+🚀 TrackNova
+</div>
 
-        "Student Name",
+<div class="nav-links">
 
-        "Present",
+<a href="/">Dashboard</a>
 
-        "Total Lectures",
+<a href="/students">
+Students
+</a>
 
-        "Attendance %"
+<a href="/lectures">
+Lectures
+</a>
 
-    ])
+<a href="/reports">
+Reports
+</a>
 
+</div>
 
-    for student in reports:
+</nav>
 
-        total =
-            student["total"] or 0
 
+<div class="container">
 
-        present =
-            student["present"] or 0
 
-
-        percentage = (
-
-            round(
-                present * 100 / total,
-                1
-            )
-
-            if total
-
-            else 0
-
-        )
-
-
-        writer.writerow([
-
-            student[
-                "roll_number"
-            ],
-
-            student[
-                "name"
-            ],
-
-            present,
-
-            total,
-
-            percentage
-
-        ])
-
-
-    return Response(
-
-        output.getvalue(),
-
-        mimetype="text/csv",
-
-        headers={
-
-            "Content-Disposition":
-
-            "attachment; "
-            "filename=tracknova_attendance.csv"
-
-        }
-
-    )
-
-
-# =========================================================
-# MANAGEMENT
-# =========================================================
-
-@app.route(
-    "/manage",
-    methods=[
-        "GET",
-        "POST"
-    ]
-)
-
-@staff_required
-
-def manage():
-
-    message = ""
-
-
-    if request.method == "POST":
-
-        action =
-            request.form.get(
-                "action"
-            )
-
-
-        try:
-
-            if action == "class":
-
-                add_class(
-
-                    request.form[
-                        "class_name"
-                    ],
-
-                    request.form[
-                        "department"
-                    ],
-
-                    request.form[
-                        "semester"
-                    ],
-
-                    request.form.get(
-                        "division",
-                        ""
-                    )
-
-                )
-
-
-                message =
-                    "Class added successfully."
-
-
-            elif action == "teacher":
-
-                create_user(
-
-                    request.form[
-                        "username"
-                    ],
-
-                    request.form[
-                        "password"
-                    ],
-
-                    request.form[
-                        "full_name"
-                    ],
-
-                    "teacher"
-
-                )
-
-
-                message =
-                    "Teacher account created."
-
-
-            elif action == "subject":
-
-                add_subject(
-
-                    request.form[
-                        "subject_name"
-                    ],
-
-                    request.form.get(
-                        "subject_code",
-                        ""
-                    ),
-
-                    request.form.get(
-                        "class_id"
-                    ),
-
-                    request.form.get(
-                        "teacher_id"
-                    )
-
-                )
-
-
-                message =
-                    "Subject added successfully."
-
-
-        except sqlite3.IntegrityError:
-
-            message =
-                "This information already exists."
-
-
-    classes =
-        get_classes()
-
-
-    teachers =
-        get_users(
-            "teacher"
-        )
-
-
-    subjects =
-        get_subjects()
-
-
-    template = """
-
-<div class="card">
+<div class="hero">
 
 <h1>
-⚙️ College Management
+📊 Attendance Reports
 </h1>
 
-
-{% if message %}
-
-
-<div class="msg">
-
-{{ message }}
+<p>
+View overall student attendance performance.
+</p>
 
 </div>
 
 
-{% endif %}
-
-
-</div>
-
-
-<div class="grid">
-
-
-<div class="card">
-
-
-<h2>
-🏫 Add Class
-</h2>
-
-
-<form method="post">
-
-
-<input
-type="hidden"
-name="action"
-value="class"
->
-
-
-<input
-name="class_name"
-placeholder="Example: SY CSE"
-required
->
-
-
-<input
-name="department"
-placeholder="Department"
-required
->
-
-
-<input
-name="semester"
-placeholder="Semester"
-required
->
-
-
-<input
-name="division"
-placeholder="Division"
->
-
-
-<button class="btn">
-
-Add Class
-
-</button>
-
-
-</form>
-
-
-</div>
-
-
-<div class="card">
-
-
-<h2>
-👨‍🏫 Add Teacher
-</h2>
-
-
-<form method="post">
-
-
-<input
-type="hidden"
-name="action"
-value="teacher"
->
-
-
-<input
-name="full_name"
-placeholder="Teacher Name"
-required
->
-
-
-<input
-name="username"
-placeholder="Username"
-required
->
-
-
-<input
-type="password"
-name="password"
-placeholder="Password"
-required
->
-
-
-<button class="btn">
-
-Create Teacher
-
-</button>
-
-
-</form>
-
-
-</div>
-
-
-</div>
-
-
-<div class="card">
-
-
-<h2>
-📚 Add Subject
-</h2>
-
-
-<form method="post">
-
-
-<input
-type="hidden"
-name="action"
-value="subject"
->
-
-
-<input
-name="subject_name"
-placeholder="Subject Name"
-required
->
-
-
-<input
-name="subject_code"
-placeholder="Subject Code"
->
-
-
-<select
-name="class_id"
->
-
-
-<option value="">
-
-Select Class
-
-</option>
-
-
-{% for c in classes %}
-
-
-<option
-value="{{ c['id'] }}"
->
-
-
-{{ c["class_name"] }}
-
--
-
-{{ c["department"] }}
-
-
-</option>
-
-
-{% endfor %}
-
-
-</select>
-
-
-<select
-name="teacher_id"
->
-
-
-<option value="">
-
-Select Teacher
-
-</option>
-
-
-{% for teacher in teachers %}
-
-
-<option
-value="{{ teacher['id'] }}"
->
-
-
-{{ teacher["full_name"] }}
-
-
-</option>
-
-
-{% endfor %}
-
-
-</select>
-
-
-<button class="btn">
-
-Add Subject
-
-</button>
-
-
-</form>
-
-
-</div>
-
-
-<div class="card">
-
-
-<h2>
-📚 Current Subjects
-</h2>
+<div class="section">
 
 
 <table>
 
-
 <tr>
 
 <th>
-Subject
+Roll No.
 </th>
 
 <th>
-Code
+Student
 </th>
 
 <th>
-Class
+Total Lectures
 </th>
 
 <th>
-Teacher
+Present
+</th>
+
+<th>
+Attendance %
 </th>
 
 </tr>
 
 
-{% for subject in subjects %}
-
+{% for student in students %}
 
 <tr>
 
-
 <td>
-{{ subject["subject_name"] }}
+{{ student["roll_number"] }}
 </td>
 
-
 <td>
-{{ subject["subject_code"] }}
+{{ student["name"] }}
 </td>
 
-
 <td>
-{{ subject["class_name"] or "-" }}
+{{ student["total"] }}
 </td>
 
-
-<td>
-{{ subject["teacher_name"] or "-" }}
+<td class="present">
+{{ student["present"] }}
 </td>
 
+<td>
+
+{% if student["total"] > 0 %}
+
+{% set percentage =
+(student["present"] / student["total"] * 100)
+|round(1)
+%}
+
+<strong>
+{{ percentage }}%
+</strong>
+
+<div class="progress">
+
+<div class="progress-bar"
+style="width: {{ percentage }}%">
+</div>
+
+</div>
+
+{% else %}
+
+No attendance
+
+{% endif %}
+
+</td>
 
 </tr>
-
 
 {% endfor %}
 
@@ -3519,34 +1580,29 @@ Teacher
 
 </div>
 
+
+</div>
+
+
+<div class="footer">
+TrackNova © 2026
+</div>
+
+
+</body>
+
+</html>
+
 """
 
 
-    return page(
-
-        template,
-
-        message=message,
-
-        classes=classes,
-
-        teachers=teachers,
-
-        subjects=subjects
-
-    )
-
-
 # =========================================================
-# RUN
+# RUN APPLICATION
 # =========================================================
 
 if __name__ == "__main__":
 
     app.run(
-
         host="0.0.0.0",
-
-        port=5000
-
+        port=int(os.environ.get("PORT", 5000))
     )

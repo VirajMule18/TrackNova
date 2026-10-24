@@ -627,38 +627,380 @@ def students_page():
         students=students,
         message=message
     )
-@app.route("/attendance", methods=["GET","POST"])
+@app.route("/attendance", methods=["GET", "POST"])
 def attendance_page():
+
     students = get_students()
+
     if request.method == "POST":
-        try:
-            lecture_id = add_lecture(request.form["lecture_date"],request.form["lecture_number"],
-                                     request.form["subject"],request.form["start_time"],request.form["end_time"])
-        except Exception as e:
-            return "Error creating lecture: " + str(e)
-        for s in students:
-            status = request.form.get("student_"+str(s["id"]))
-            if status in ("Present","Absent"):
-                save_attendance(s["id"],lecture_id,status)
-        return redirect(url_for("lecture_view",lecture_id=lecture_id))
+
+        lecture_date = request.form.get("lecture_date")
+        lecture_number = request.form.get("lecture_number")
+        subject = request.form.get("subject")
+        start_time = request.form.get("start_time")
+        end_time = request.form.get("end_time")
+
+        lecture_id = add_lecture(
+            lecture_date,
+            lecture_number,
+            subject,
+            start_time,
+            end_time
+        )
+
+        for student in students:
+
+            status = request.form.get(
+                "student_" + str(student["id"])
+            )
+
+            if status in ("Present", "Absent"):
+
+                save_attendance(
+                    student["id"],
+                    lecture_id,
+                    status
+                )
+
+        return redirect(
+            url_for(
+                "lecture_view",
+                lecture_id=lecture_id
+            )
+        )
 
     template = """
-    <div class="card"><h1>📋 Take Attendance</h1>
+
+    <div class="card">
+
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            flex-wrap:wrap;
+            gap:20px;
+        ">
+
+            <div>
+
+                <div style="
+                    color:#6366f1;
+                    font-weight:800;
+                    letter-spacing:1px;
+                    font-size:13px;
+                ">
+                    ATTENDANCE MANAGEMENT
+                </div>
+
+                <h1 style="margin:8px 0;">
+                    📋 Take Attendance
+                </h1>
+
+                <p style="color:#64748b;">
+                    Mark attendance quickly and easily.
+                </p>
+
+            </div>
+
+            <div style="
+                font-size:60px;
+                animation:float 3s ease-in-out infinite;
+            ">
+                📝
+            </div>
+
+        </div>
+
+    </div>
+
+
+    {% if students %}
+
     <form method="post">
-    <input type="date" name="lecture_date" value="{{today}}" required>
-    <input type="number" name="lecture_number" placeholder="Lecture No." required>
-    <input type="text" name="subject" placeholder="Subject" required>
-    <input type="time" name="start_time" required><input type="time" name="end_time" required>
-    {% if students %}<table><tr><th>Roll</th><th>Name</th><th>Status</th></tr>
-    {% for s in students %}<tr><td>{{s["roll_number"]}}</td><td>{{s["name"]}}</td><td>
-    <label><input type="radio" name="student_{{s['id']}}" value="Present" required> 🟢 Present</label>
-    <label><input type="radio" name="student_{{s['id']}}" value="Absent"> 🔴 Absent</label>
-    </td></tr>{% endfor %}</table>
-    <button class="btn">💾 Save Attendance</button>
-    {% else %}<div class="warn">⚠️ Add students first.</div><a class="btn" href="/students">Add Students</a>{% endif %}
-    </form></div>
+
+        <div class="card">
+
+            <h2>📚 Lecture Information</h2>
+
+            <p style="color:#64748b;">
+                Enter the details of today's lecture.
+            </p>
+
+            <input
+                type="date"
+                name="lecture_date"
+                value="{{ today }}"
+                required
+            >
+
+            <input
+                type="number"
+                name="lecture_number"
+                placeholder="📖 Lecture Number"
+                min="1"
+                required
+            >
+
+            <input
+                type="text"
+                name="subject"
+                placeholder="📚 Subject Name"
+                required
+            >
+
+            <input
+                type="time"
+                name="start_time"
+                required
+            >
+
+            <input
+                type="time"
+                name="end_time"
+                required
+            >
+
+        </div>
+
+
+        <div class="card">
+
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                flex-wrap:wrap;
+                gap:10px;
+            ">
+
+                <div>
+
+                    <h2>
+                        👨‍🎓 Mark Students
+                    </h2>
+
+                    <p style="color:#64748b;">
+                        Select Present or Absent for each student.
+                    </p>
+
+                </div>
+
+                <div>
+
+                    <button
+                        type="button"
+                        class="btn"
+                        onclick="markAll('Present')"
+                    >
+                        🟢 Mark All Present
+                    </button>
+
+                    <button
+                        type="button"
+                        class="btn delete"
+                        onclick="markAll('Absent')"
+                    >
+                        🔴 Mark All Absent
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>Roll No.</th>
+
+                        <th>Student</th>
+
+                        <th>Status</th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                {% for student in students %}
+
+                <tr>
+
+                    <td>
+
+                        <b>
+                            #{{ student["roll_number"] }}
+                        </b>
+
+                    </td>
+
+
+                    <td>
+
+                        <div style="
+                            display:flex;
+                            align-items:center;
+                            gap:10px;
+                        ">
+
+                            <div style="
+                                width:38px;
+                                height:38px;
+                                border-radius:50%;
+                                background:linear-gradient(
+                                    135deg,
+                                    #6366f1,
+                                    #2563eb
+                                );
+                                color:white;
+                                display:flex;
+                                align-items:center;
+                                justify-content:center;
+                                font-weight:bold;
+                            ">
+
+                                {{ student["name"][0]|upper }}
+
+                            </div>
+
+                            <b>
+                                {{ student["name"] }}
+                            </b>
+
+                        </div>
+
+                    </td>
+
+
+                    <td>
+
+                        <label>
+
+                            <input
+                                type="radio"
+                                name="student_{{ student['id'] }}"
+                                value="Present"
+                                required
+                            >
+
+                            🟢 Present
+
+                        </label>
+
+
+                        <label style="margin-left:15px;">
+
+                            <input
+                                type="radio"
+                                name="student_{{ student['id'] }}"
+                                value="Absent"
+                            >
+
+                            🔴 Absent
+
+                        </label>
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+                </tbody>
+
+            </table>
+
+
+            <div style="
+                margin-top:25px;
+                text-align:center;
+            ">
+
+                <button
+                    class="btn"
+                    type="submit"
+                    style="
+                        font-size:17px;
+                        padding:14px 30px;
+                    "
+                >
+                    💾 Save Attendance
+                </button>
+
+            </div>
+
+        </div>
+
+    </form>
+
+
+    {% else %}
+
+    <div class="card">
+
+        <div class="empty">
+
+            <div style="font-size:65px;">
+                👨‍🎓
+            </div>
+
+            <h2>
+                No Students Found
+            </h2>
+
+            <p>
+                You need to add students before taking attendance.
+            </p>
+
+            <a
+                href="/students"
+                class="btn"
+            >
+                + Add Students
+            </a>
+
+        </div>
+
+    </div>
+
+    {% endif %}
+
+
+    <script>
+
+    function markAll(status) {
+
+        let buttons =
+            document.querySelectorAll(
+                'input[type="radio"]'
+            );
+
+        buttons.forEach(function(button) {
+
+            if (button.value === status) {
+
+                button.checked = true;
+
+            }
+
+        });
+
+    }
+
+    </script>
+
     """
-    return page(template,students=students,today=date.today().isoformat())
+
+    return page(
+        template,
+        students=students,
+        today=date.today().isoformat()
+    )
 
 @app.route("/lecture/<int:lecture_id>")
 def lecture_view(lecture_id):
